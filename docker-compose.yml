@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  app:
+    image: erp-test
+    ports:
+      - "3009:3009"
+    environment:
+      SERVER_PORT: 3009
+      JWT_SECRET: "pB6f68mjc$(byXQAU22"
+      DB_USERNAME: erp_user
+      DB_PASSWORD: "mdt1234@"
+      DB_DATABASE: erp_database
+      DB_PORT: 5432
+      DB_HOST: 127.0.0.1
