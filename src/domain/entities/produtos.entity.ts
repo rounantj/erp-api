@@ -19,23 +19,28 @@ export class Produto {
   @Column()
   descricao: string;
 
-  @Column()
+  @Column({ type: "float" }) // Specify float type for valor
   valor: number;
 
-  @Column()
-  ativa?: boolean;
+  // Conversion methods (optional, but improves readability)
+  setValue(valorString: string) {
+    this.valor = parseFloat(valorString);
+    if (isNaN(this.valor)) {
+      throw new Error("Valor inválido"); // Handle invalid conversion
+    }
+  }
 
   @Column()
-  contato_credor: string;
+  companyId: number;
 
   @Column()
-  vencimento: Date;
+  categoria?: string;
 
   @Column()
-  categoria: string;
+  ncm?: string;
 
   @ManyToOne(() => Venda, (item: any) => item.produtos)
-  company: Venda;
+  vendas?: Venda[];
 
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;

@@ -7,13 +7,18 @@ import {
   Post,
   Put,
   Query,
+  Req,
   Request,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "@/domain/auth/jwt-auth.guard";
 import { ProdutoService } from "./produto.service";
 import { Produto } from "@/domain/entities/produtos.entity";
+import { FileInterceptor } from "@nestjs/platform-express";
+import * as xlsx from "xlsx";
 
 @Controller("produtos")
 export class ProdutoController {
@@ -22,7 +27,44 @@ export class ProdutoController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Request() req: any, @Body() poduto: Produto) {
-    return this.produtoService.create(poduto);
+    return this.produtoService.upsert(poduto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("/upload")
+  @UseInterceptors(FileInterceptor("file"))
+  async upload(
+    @Res() res: any,
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    try {
+      if (!file) {
+        return res.status(400).send({ message: "No file uploaded" });
+      }
+
+      const workbook = xlsx.read(file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      let data = xlsx.utils.sheet_to_json(worksheet);
+      data.forEach((item: any) => {
+        item["id"] = +item["Código"];
+        item["descricao"] = item["Descrição"];
+        item["categoria"] = "novo";
+        item["valor"] = item["Valor"];
+        item["ncm"] = item["NCM"];
+        item["createdByUser"] = 1;
+        item["updatedByUser"] = 1;
+        item["createdAt"] = new Date();
+        item["updatedAt"] = new Date();
+        item["companyId"] = req.user.companyId ?? 1;
+      });
+
+      const results = await this.produtoService.processExcelData(data);
+      return res.status(200).send(results);
+    } catch (error) {
+      return res.status(500).send({ message: "Failed to process file", error });
+    }
   }
 
   @UseGuards(JwtAuthGuard)
