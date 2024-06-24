@@ -36,11 +36,11 @@ export class Produto {
   @Column()
   categoria?: string;
 
+  @Column({ nullable: true })
+  ean?: string;
+
   @Column()
   ncm?: string;
-
-  @ManyToOne(() => Venda, (item: any) => item.produtos)
-  vendas?: Venda[];
 
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;

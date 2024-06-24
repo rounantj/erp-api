@@ -11,6 +11,11 @@ import { Company } from "./company.entity";
 import { User } from "./user.entity";
 import { Produto } from "./produtos.entity";
 
+type ProdutoDeVenda = Produto & {
+  quantidade: number;
+  desconto: number;
+};
+
 @Entity("venda")
 export class Venda {
   @PrimaryGeneratedColumn()
@@ -19,14 +24,25 @@ export class Venda {
   @Column()
   nome_cliente: string;
 
-  @Column()
+  @Column({ nullable: true })
   desconto: number;
 
-  @Column()
+  @Column({ type: "float" }) // Specify float type for valor
   total: number;
 
+  // Conversion methods (optional, but improves readability)
+  setValue(valorString: string) {
+    this.total = parseFloat(valorString);
+    if (isNaN(this.total)) {
+      throw new Error("total inválido"); // Handle invalid conversion
+    }
+  }
+
+  @Column()
+  metodoPagamento: string;
+
   @Column("simple-json")
-  produtoIds: number[];
+  produtos: ProdutoDeVenda[];
 
   @Column()
   user_id: number;
