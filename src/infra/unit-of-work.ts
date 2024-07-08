@@ -1,4 +1,5 @@
 import { Company } from "@/domain/entities/company.entity";
+import { Despesa } from "@/domain/entities/despesas.entity";
 import { ProductImages } from "@/domain/entities/product_image.entity";
 import { Produto } from "@/domain/entities/produtos.entity";
 import { User } from "@/domain/entities/user.entity";
@@ -15,6 +16,10 @@ export class UnitOfWorkService {
 
   get vendaRepository(): Repository<Venda> {
     return this.entityManager.getRepository(Venda);
+  }
+
+  get despesaRepository(): Repository<Despesa> {
+    return this.entityManager.getRepository(Despesa);
   }
 
   get produtoRepository(): Repository<Produto> {

@@ -10,6 +10,7 @@ import { UnitOfWorkService } from "./infra/unit-of-work";
 import { ProductImagesModule } from "./api/product_images/product_images.module";
 import { VendasModule } from "./api/venda/venda.module";
 import { ProdutosModule } from "./api/produto/produto.module";
+import { DespesaModule } from "./api/despesa/despesa.module";
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ProdutosModule } from "./api/produto/produto.module";
     AuthModule,
     CompaniesModule,
     UsersModule,
+    DespesaModule,
     HealthModule,
     VendasModule,
     ProdutosModule,
