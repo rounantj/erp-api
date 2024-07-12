@@ -45,12 +45,6 @@ export class Despesa {
   @Column()
   categoria?: string;
 
-  @Column({ nullable: true })
-  ean?: string;
-
-  @Column()
-  ncm?: string;
-
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
