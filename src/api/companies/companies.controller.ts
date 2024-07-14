@@ -14,6 +14,7 @@ import {
 import { CompaniesService } from './companies.service';
 import { JwtAuthGuard } from '@/domain/auth/jwt-auth.guard';
 import { Company } from '@/domain/entities/company.entity';
+import { CompanySetup } from '@/domain/entities/company-setup.entity';
 
 @Controller('companies')
 export class CompaniesController {
@@ -37,6 +38,22 @@ export class CompaniesController {
         @Request() req: any,
     ) {
         return this.companieService.getAll()
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get("/setup")
+    getSetup(
+        @Request() req: any, @Query() params: any,
+    ) {
+        return this.companieService.getSetup(params.companyId)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post("/setup")
+    updateSetup(
+        @Request() req: any, @Body() params: CompanySetup,
+    ) {
+        return this.companieService.updateSetup(params)
     }
 
     @UseGuards(JwtAuthGuard)

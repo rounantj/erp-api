@@ -2,10 +2,11 @@ import { Venda } from "@/domain/entities/vendas.entity";
 import { UnitOfWorkService } from "@/infra/unit-of-work";
 import { Injectable } from "@nestjs/common";
 import * as moment from "moment";
+import { Between } from "typeorm";
 
 @Injectable()
 export class VendasService {
-  constructor(private uow: UnitOfWorkService) {}
+  constructor(private uow: UnitOfWorkService) { }
 
   async create(venda: Venda) {
     return await this.uow.vendaRepository.save(venda);
@@ -18,6 +19,9 @@ export class VendasService {
     const queryYear = `SELECT *
                         FROM venda
                         WHERE EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)`;
+
+    const queryDespesas = `SELECT sum(valor) as total from despesa`
+    const despesa = await this.uow.vendaRepository.query(queryDespesas);
 
     const vendas = `SELECT * FROM venda WHERE created_at BETWEEN '${firstDayOfMonth}' AND '${lastDayOfMonth}'`;
     const year = await this.uow.vendaRepository.query(queryYear);
@@ -169,12 +173,25 @@ export class VendasService {
       meses,
       mesesSerValues,
       mesesPrdValues,
+      despesa
     };
   }
 
-  async getAll() {
-    return await this.uow.vendaRepository.find();
+  async getAll(rangeDate: any) {
+    const today = moment().format("YYYY-MM-DD");
+    const oneMonthAgo = moment().subtract(1, 'months').format("YYYY-MM-DD");
+
+    // Use default dates if not provided
+    const start = rangeDate.startDate ?? oneMonthAgo;
+    const end = rangeDate.endDate ?? today;
+
+    return await this.uow.vendaRepository.find({
+      where: {
+        createdAt: Between(new Date(start), new Date(end))
+      }
+    });
   }
+
   async getOne(vendaId: number) {
     return await this.uow.vendaRepository.findOne({
       where: {

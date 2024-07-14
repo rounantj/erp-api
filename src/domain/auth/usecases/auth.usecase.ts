@@ -28,7 +28,7 @@ export class UserAuthUsecase {
   constructor(
     private readonly uow: UnitOfWorkService,
     private jwtService: JwtService
-  ) {}
+  ) { }
 
   private async updateLastAccess(id: number) {
     const updateUser = new User();
@@ -103,7 +103,7 @@ export class UserAuthUsecase {
     user.password = apiUser.password;
     user.name = apiUser?.name ?? "";
     user.username = apiUser?.username ?? "";
-    user.role = apiUser?.role ?? "admin";
+    user.role = apiUser?.role ?? "visitante";
     user.email = apiUser.email;
     user.companyId = apiUser?.companyId;
     user.is_active = true;
@@ -125,5 +125,25 @@ export class UserAuthUsecase {
         id: userId,
       },
     });
+  }
+
+  async userList(companyId: number): Promise<any> {
+    return await this.uow.userRepository.find({
+      where: {
+        companyId,
+      },
+    });
+  }
+
+  async updateUserRule({ companyId, userName, userRule }: { companyId: number, userName: string, userRule: string }): Promise<any> {
+    const user: User = await this.uow.userRepository.findOne({
+      where: {
+        companyId,
+        username: userName
+      },
+    });
+    user.role = userRule
+    const result = await this.uow.userRepository.save(user)
+    return result
   }
 }

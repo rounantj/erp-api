@@ -17,11 +17,13 @@ import { VendasService } from "./venda.service";
 
 @Controller("vendas")
 export class VendasController {
-  constructor(private vendasservice: VendasService) {}
+  constructor(private vendasservice: VendasService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Request() req: any, @Body() venda: Venda) {
+    const user = req.user.sub
+    venda.user_id = user.id
     return this.vendasservice.create(venda);
   }
 
@@ -33,8 +35,8 @@ export class VendasController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  getAll(@Request() req: any) {
-    return this.vendasservice.getAll();
+  getAll(@Request() req: any, @Query() rangeDates: string) {
+    return this.vendasservice.getAll(rangeDates);
   }
 
   @UseGuards(JwtAuthGuard)

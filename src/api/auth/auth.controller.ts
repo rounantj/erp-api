@@ -26,7 +26,7 @@ const THROTTLE_OPTIONS = {
 
 @Controller()
 export class AuthController {
-  constructor(private authService: UserAuthUsecase) {}
+  constructor(private authService: UserAuthUsecase) { }
 
   @Throttle(THROTTLE_OPTIONS)
   @Post("auth/login")
@@ -41,6 +41,18 @@ export class AuthController {
   @Post("auth/register")
   async register(@Request() req: any, @Body() payload: PayloadAccessToken) {
     return this.authService.register(payload);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("user/list")
+  async userList(@Request() req: any, @Query() params: any) {
+    return this.authService.userList(params.companyId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("user/update-role")
+  async userUpdateRole(@Request() req: any, @Body() params: { companyId: number, userName: string, userRule: string }) {
+    return this.authService.updateUserRule(params);
   }
 
   @Post("auth/login-as-api")

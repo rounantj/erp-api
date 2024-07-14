@@ -22,7 +22,7 @@ import * as xlsx from "xlsx";
 
 @Controller("despesas")
 export class DespesaController {
-  constructor(private DespesaService: DespesaService) {}
+  constructor(private DespesaService: DespesaService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -44,7 +44,7 @@ export class DespesaController {
 
   @UseGuards(JwtAuthGuard)
   @Delete()
-  delete(@Request() req: any, @Query() podutoId: number) {
-    return this.DespesaService.delete(podutoId);
+  delete(@Request() req: any, @Query() id: number) {
+    return this.DespesaService.delete(id);
   }
 }

@@ -1,3 +1,4 @@
+import { CompanySetup } from "@/domain/entities/company-setup.entity";
 import { Company } from "@/domain/entities/company.entity";
 import { Despesa } from "@/domain/entities/despesas.entity";
 import { ProductImages } from "@/domain/entities/product_image.entity";
@@ -8,10 +9,14 @@ import { Injectable } from "@nestjs/common";
 import { Repository, EntityManager } from "typeorm";
 @Injectable()
 export class UnitOfWorkService {
-  constructor(private readonly entityManager: EntityManager) {}
+  constructor(private readonly entityManager: EntityManager) { }
 
   get companyRepository(): Repository<Company> {
     return this.entityManager.getRepository(Company);
+  }
+
+  get companySetupRepository(): Repository<CompanySetup> {
+    return this.entityManager.getRepository(CompanySetup);
   }
 
   get vendaRepository(): Repository<Venda> {
