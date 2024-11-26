@@ -15,6 +15,7 @@ export class VendasService {
     return await this.uow.vendaRepository.save(venda);
   }
 
+
   async dashboard(): Promise<any> {
     const firstDayOfMonth = moment().startOf("month").format("YYYY-MM-DD");
     const lastDayOfMonth = moment().endOf("month").format("YYYY-MM-DD");
@@ -32,7 +33,14 @@ export class VendasService {
     const serverDateTimeQuery = `SELECT now() `;
     const serverDateTime = await this.uow.vendaRepository.query(serverDateTimeQuery);
 
-    const vendeu = await this.uow.vendaRepository.query(vendas);
+    let vendeu = await this.uow.vendaRepository.query(vendas);
+    vendeu.map((a: any) => {
+      return {
+        ...a,
+        created_at: moment(a.created_at).add(-3, "hour")
+      }
+
+    })
     let produtosVendidos: any[] = [];
     vendeu.forEach((venda: any) => {
       const prds = JSON.parse(venda.produtos);
@@ -105,22 +113,22 @@ export class VendasService {
       0
     );
 
-    const vendidosHoje = produtosVendidos.filter(
-      (a) =>
-        moment(a.createdAt).format("DD/MM/YYYY") ==
+    const vendidosHoje = vendeu.filter(
+      (a: any) =>
+        moment(a.created_at).format("DD/MM/YYYY") ==
         moment().format("DD/MM/YYYY")
     );
 
     const totalHoje = vendidosHoje.reduce(
-      (total, item) => total + item.valorTotal,
+      (total: any, item: any) => total + item.total,
       0
     );
-    const vendidosNoMes = produtosVendidos.filter(
-      (a) => moment(a.createdAt).format("MM/YYYY") == moment().format("MM/YYYY")
+    const vendidosNoMes = vendeu.filter(
+      (a: any) => moment(a.created_at).format("MM/YYYY") == moment().format("MM/YYYY")
     );
 
     const totalEsseMes = vendidosNoMes.reduce(
-      (total, item) => total + item.valorTotal,
+      (total: any, item: any) => total + item.valorTotal,
       0
     );
     const servicosValues: number[] = [];
