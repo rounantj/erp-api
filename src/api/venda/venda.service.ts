@@ -3,6 +3,9 @@ import { UnitOfWorkService } from "@/infra/unit-of-work";
 import { Injectable } from "@nestjs/common";
 import * as moment from "moment";
 import { Between } from "typeorm";
+import "moment-timezone"; // Importa a extensão de timezone do moment
+// Configura o timezone padrão
+moment.tz.setDefault("America/Sao_Paulo");
 
 @Injectable()
 export class VendasService {

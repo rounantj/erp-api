@@ -27,7 +27,7 @@ const dbconfig = (executedByTypeOrmCli: boolean) => {
     type: "postgres",
     entities: [entitiesPath],
     migrations: [migrationsPath],
-    timezone: process.env.TZH,
+    timezone: "America/Sao_Paulo", // Define o timezone correto
     synchronize: false,
     poolSize: 50,
     keepConnectionAlive: false,
@@ -43,7 +43,9 @@ const dbconfig = (executedByTypeOrmCli: boolean) => {
       ca: Buffer.from(replaceAll(process.env.SSL_CA, "\\n", "\n"), "utf8"),
       rejectUnauthorized: false,
     },
-
+    extra: {
+      options: "-c timezone=America/Sao_Paulo",
+    },
     types: ["vector"],
   } as DataSourceOptions;
   return dataSource;
