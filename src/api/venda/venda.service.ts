@@ -26,6 +26,9 @@ export class VendasService {
     const vendas = `SELECT * FROM venda WHERE created_at BETWEEN '${firstDayOfMonth}' AND '${lastDayOfMonth}'`;
     const year = await this.uow.vendaRepository.query(queryYear);
 
+    const serverDateTimeQuery = `SELECT now() `;
+    const serverDateTime = await this.uow.vendaRepository.query(serverDateTimeQuery);
+
     const vendeu = await this.uow.vendaRepository.query(vendas);
     let produtosVendidos: any[] = [];
     vendeu.forEach((venda: any) => {
@@ -173,7 +176,8 @@ export class VendasService {
       meses,
       mesesSerValues,
       mesesPrdValues,
-      despesa
+      despesa,
+      serverDateTime
     };
   }
 
