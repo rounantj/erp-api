@@ -22,7 +22,7 @@ import * as xlsx from "xlsx";
 
 @Controller("produtos")
 export class ProdutoController {
-  constructor(private produtoService: ProdutoService) {}
+  constructor(private produtoService: ProdutoService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -48,11 +48,11 @@ export class ProdutoController {
       const worksheet = workbook.Sheets[sheetName];
       let data = xlsx.utils.sheet_to_json(worksheet);
       data.forEach((item: any) => {
-        item["id"] = +item["Código"];
+        item["id"] = +(item["Código"].replace("-", ""));
         item["descricao"] = item["Descrição"];
-        item["categoria"] = "novo";
+        item["categoria"] = item["NCM"] ? "produto" : "servico";
         item["valor"] = item["Valor"];
-        item["ncm"] = item["NCM"];
+        item["ncm"] = item["NCM"] ?? "-";
         item["createdByUser"] = 1;
         item["updatedByUser"] = 1;
         item["createdAt"] = new Date();

@@ -18,7 +18,7 @@ function isInteger(str: string) {
 export function justIntNumbers(value: string): string {
     if (value === null || value === undefined) return value
 
-    if (typeof value === 'string') value = value.replace(/\s|[^0-9]/g, '')
+    if (typeof value === 'string') value = value?.replace(/\s|[^0-9]/g, '')
 
     if (isInteger(value)) {
         return `${value}`
@@ -41,11 +41,11 @@ export function distinct(array: string[]) {
 }
 
 export function escapeRegExp(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return str?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export function replaceAll(str: string, find: string, replace: string) {
-    return str.replace(new RegExp(escapeRegExp(find), 'g'), replace)
+    return str?.replace(new RegExp(escapeRegExp(find), 'g'), replace)
 }
 
 export const getEnumKey = (obj: any, value: any): string => {
@@ -55,5 +55,5 @@ export const getEnumKey = (obj: any, value: any): string => {
 }
 
 export const removeAccents = (inputText: string) => {
-    return inputText.normalize('NFD').replace(/[\u0300-\u036f]/g, "")
+    return inputText.normalize('NFD')?.replace(/[\u0300-\u036f]/g, "")
 }

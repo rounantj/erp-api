@@ -5,7 +5,7 @@ import { IsNull, Not } from "typeorm";
 
 @Injectable()
 export class ProdutoService {
-  constructor(private uow: UnitOfWorkService) {}
+  constructor(private uow: UnitOfWorkService) { }
 
   async upsert(produto: Produto) {
     produto.updatedAt = new Date();
@@ -40,14 +40,22 @@ export class ProdutoService {
   }
   async processExcelData(data: any[]): Promise<any> {
     const results: Produto[] = [];
-
+    let index = 0
     for (const item of data) {
-      let existingProduct = (await this.getOne(item.id)) ?? ({} as Produto);
+      index++
+      let existingProduct = null
+      if (item?.id) {
+        existingProduct = await this.getOne(item.id)
+      }
+      if (!existingProduct) {
+        existingProduct = item
+      }
       if (existingProduct) {
         // Atualizar o produto existente
         existingProduct = { ...existingProduct, ...item };
       }
       const updatedProduct = await this.upsert(existingProduct);
+      console.log({ tudo: data.length, index, name: updatedProduct.descricao })
       results.push(updatedProduct);
     }
     return results;
