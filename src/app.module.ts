@@ -13,6 +13,7 @@ import { ProdutosModule } from "./api/produto/produto.module";
 import { DespesaModule } from "./api/despesa/despesa.module";
 import { MovimentacaoCaixaModule } from "./api/movimentacao_caixa/movimentacao-caixa.module";
 import { CaixaModule } from "./api/caixa/caixa.module";
+import { FofaAi } from "./api/fofa-ai/fofa-ai.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CaixaModule } from "./api/caixa/caixa.module";
     ProductImagesModule,
     MovimentacaoCaixaModule,
     CaixaModule,
+    FofaAi,
   ],
   controllers: [],
   providers: [UnitOfWorkService],
