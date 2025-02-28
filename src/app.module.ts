@@ -11,6 +11,8 @@ import { ProductImagesModule } from "./api/product_images/product_images.module"
 import { VendasModule } from "./api/venda/venda.module";
 import { ProdutosModule } from "./api/produto/produto.module";
 import { DespesaModule } from "./api/despesa/despesa.module";
+import { MovimentacaoCaixaModule } from "./api/movimentacao_caixa/movimentacao-caixa.module";
+import { CaixaModule } from "./api/caixa/caixa.module";
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { DespesaModule } from "./api/despesa/despesa.module";
     VendasModule,
     ProdutosModule,
     ProductImagesModule,
+    MovimentacaoCaixaModule,
+    CaixaModule,
   ],
   controllers: [],
   providers: [UnitOfWorkService],

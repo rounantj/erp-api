@@ -10,6 +10,7 @@ import {
 import { Company } from "./company.entity";
 import { User } from "./user.entity";
 import { Produto } from "./produtos.entity";
+import { Caixa } from "./caixa.entity";
 
 type ProdutoDeVenda = Produto & {
   quantidade: number;
@@ -47,6 +48,9 @@ export class Venda {
   @Column()
   user_id: number;
 
+  @Column({ nullable: true })
+  caixaId: number;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
@@ -61,6 +65,10 @@ export class Venda {
 
   @DeleteDateColumn({ name: "deleted_at", nullable: true })
   deletedAt: Date;
+
+  @ManyToOne(() => Caixa, { nullable: true })
+  @JoinColumn({ name: "caixa", referencedColumnName: "id" })
+  caixa: Caixa;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "updated_by_user", referencedColumnName: "id" })

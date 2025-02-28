@@ -9,12 +9,20 @@ moment.tz.setDefault("America/Sao_Paulo");
 
 @Injectable()
 export class VendasService {
-  constructor(private uow: UnitOfWorkService) { }
+  constructor(private uow: UnitOfWorkService) {}
 
   async create(venda: Venda) {
+    // Buscar caixa no banco de dados
+    const caixa = await this.uow.caixaRepository.findOne({
+      where: { id: venda.caixaId },
+    });
+    if (!caixa) {
+      throw new Error("Caixa não encontrado");
+    }
+    venda.caixa = caixa;
+
     return await this.uow.vendaRepository.save(venda);
   }
-
 
   async dashboard(): Promise<any> {
     const firstDayOfMonth = moment().startOf("month").format("YYYY-MM-DD");
@@ -24,23 +32,24 @@ export class VendasService {
                         FROM venda
                         WHERE EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)`;
 
-    const queryDespesas = `SELECT sum(valor) as total from despesa`
+    const queryDespesas = `SELECT sum(valor) as total from despesa`;
     const despesa = await this.uow.vendaRepository.query(queryDespesas);
 
     const vendas = `SELECT * FROM venda WHERE created_at BETWEEN '${firstDayOfMonth}' AND '${lastDayOfMonth}'`;
     const year = await this.uow.vendaRepository.query(queryYear);
 
     const serverDateTimeQuery = `SELECT now() `;
-    const serverDateTime = await this.uow.vendaRepository.query(serverDateTimeQuery);
+    const serverDateTime = await this.uow.vendaRepository.query(
+      serverDateTimeQuery
+    );
 
     let vendeu = await this.uow.vendaRepository.query(vendas);
     vendeu.map((a: any) => {
       return {
         ...a,
-        created_at: moment(a.created_at).add(-3, "hour")
-      }
-
-    })
+        created_at: moment(a.created_at).add(-3, "hour"),
+      };
+    });
     let produtosVendidos: any[] = [];
     vendeu.forEach((venda: any) => {
       const prds = JSON.parse(venda.produtos);
@@ -124,7 +133,8 @@ export class VendasService {
       0
     );
     const vendidosNoMes = vendeu.filter(
-      (a: any) => moment(a.created_at).format("MM/YYYY") == moment().format("MM/YYYY")
+      (a: any) =>
+        moment(a.created_at).format("MM/YYYY") == moment().format("MM/YYYY")
     );
 
     const totalEsseMes = vendidosNoMes.reduce(
@@ -188,13 +198,13 @@ export class VendasService {
       mesesSerValues,
       mesesPrdValues,
       despesa,
-      serverDateTime
+      serverDateTime,
     };
   }
 
   async getAll(rangeDate: any) {
     const today = moment().format("YYYY-MM-DD");
-    const oneMonthAgo = moment().subtract(1, 'months').format("YYYY-MM-DD");
+    const oneMonthAgo = moment().subtract(1, "months").format("YYYY-MM-DD");
 
     // Use default dates if not provided
     const start = rangeDate.startDate ?? oneMonthAgo;
@@ -202,8 +212,8 @@ export class VendasService {
 
     return await this.uow.vendaRepository.find({
       where: {
-        createdAt: Between(new Date(start), new Date(end))
-      }
+        createdAt: Between(new Date(start), new Date(end)),
+      },
     });
   }
 
