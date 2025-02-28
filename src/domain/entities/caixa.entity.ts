@@ -30,6 +30,9 @@ export class Caixa {
   @Column({ type: "float", default: 0 })
   saldoFinal: number;
 
+  @Column({ type: "float", default: 0 })
+  diferenca: number;
+
   @Column({ type: "boolean", default: false })
   fechado: boolean;
 

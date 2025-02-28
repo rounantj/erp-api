@@ -84,6 +84,30 @@ export class CaixaService {
     return newCaixa;
   }
 
+  async close(
+    id: number,
+    userId: number,
+    saldoFinal: number,
+    diferenca: number
+  ): Promise<Caixa> {
+    const openedCaixa = await this.uow.caixaRepository.findOne({
+      where: { id },
+    });
+
+    if (!openedCaixa) {
+      return null;
+    }
+    openedCaixa.saldoFinal = saldoFinal;
+    openedCaixa.fechado = true;
+    openedCaixa.diferenca = diferenca;
+    openedCaixa.fechamentoData = new Date();
+    openedCaixa.fechadoPor = userId || null;
+
+    // Salvar no banco
+    const newCaixa = await this.uow.caixaRepository.save(openedCaixa);
+    return newCaixa;
+  }
+
   async resumoVendasDoDia(caixaId: number) {
     try {
       const resumo = await this.uow.vendaRepository

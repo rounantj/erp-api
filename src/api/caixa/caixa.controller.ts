@@ -35,6 +35,15 @@ export class CaixaController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post("close")
+  close(
+    @Request() req: any,
+    @Body() { id, userId, saldoFinal, diferenca }: any
+  ) {
+    return this.caixaService.close(id, userId, saldoFinal, diferenca);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get()
   getAll(@Request() req: any) {
     return this.caixaService.getAll();
