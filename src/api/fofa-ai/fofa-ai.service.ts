@@ -24,6 +24,46 @@ export class FofaAiService {
     };
   }
 
+  async curriculumGenerator(personalData: string): Promise<any> {
+    const prompt = `
+  Você é um assistente especializado em criar currículos profissionais.
+  quero que com base nas informações fornecidas, você crie um currículo profissional para mim.
+  INSTRUÇÕES:
+  1. Vou te fornecer poucas informações pessoais, e você deve criar um currículo profissional.
+  2. O currículo deve ser conciso, objetivo e bem estruturado.
+  3. A saida deve ser preencher um json especifico com as informações solicitadas.
+  Ex.: "{"habilidades":["Manutenção preventiva","Reparo de equipamentos","Instalação de dispositivos","Normas de segurança elétrica","Leitura de diagramas elétricos","Instalações elétricas"],"informacoesAdicionais":"TESTE INFO","modelo":"simples","experiencias":[{"empresa":"Teste","cargo":"Teste","periodo":"2018-2019","descricao":"Teste"}],"cursos":[{"nome":"Teste","instituicao":"SENAI","ano":"2010"},{"nome":"Solda","instituicao":"SESI","ano":"2019"}],"foto":null,"nome":"Ronan Rodrigues","telefone":"2796011204","endereco":"ANTONIO COSTA, 200","objetivo":"Treinar e aprender"}"
+  
+  As poucas informações que temos são:
+  ${personalData}`;
+
+    try {
+      const resultado = await this.queryAI(prompt);
+      const textoResposta = resultado.text
+        .replace(/\n/g, "")
+        .replace(/```/g, "")
+        .replace(/json/g, "")
+        .trim();
+
+      let curriculum;
+      try {
+        curriculum = JSON.parse(textoResposta);
+
+        if (!curriculum) {
+          throw new Error("A resposta não é um JSON válido");
+        }
+
+        return curriculum;
+      } catch (parseError) {
+        console.error("Erro ao processar resposta:", parseError);
+        throw new Error("Não foi possível processar a resposta da IA");
+      }
+    } catch (error) {
+      console.error("Erro ao processar currículo:", error);
+      throw error;
+    }
+  }
+
   async processarProdutos(size: number) {
     // Busca produtos sem nomeAmigavel
     const hoje = new Date();

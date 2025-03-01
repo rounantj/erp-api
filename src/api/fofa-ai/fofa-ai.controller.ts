@@ -19,4 +19,10 @@ export class FofaAiController {
   async queryPrd(@Body() data: { size: number }) {
     return this.fofaAiService.processarProdutos(data.size);
   }
+  // Rota para consultas gerais à IA
+  @UseGuards(JwtAuthGuard)
+  @Post("query-curriculo")
+  async queryCurriculo(@Body() data: { personalData: string }) {
+    return this.fofaAiService.curriculumGenerator(data.personalData);
+  }
 }
