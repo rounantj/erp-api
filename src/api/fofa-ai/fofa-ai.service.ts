@@ -36,7 +36,6 @@ export class FofaAiService {
   
   As poucas informações que temos são:
   ${personalData}`;
-
     try {
       const resultado = await this.queryAI(prompt);
       const textoResposta = resultado.text
