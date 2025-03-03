@@ -22,7 +22,7 @@ import * as xlsx from "xlsx";
 
 @Controller("produtos")
 export class ProdutoController {
-  constructor(private produtoService: ProdutoService) { }
+  constructor(private produtoService: ProdutoService) {}
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -48,7 +48,7 @@ export class ProdutoController {
       const worksheet = workbook.Sheets[sheetName];
       let data = xlsx.utils.sheet_to_json(worksheet);
       data.forEach((item: any) => {
-        item["id"] = +(item["Código"].replace("-", ""));
+        item["id"] = +item["Código"].replace("-", "");
         item["descricao"] = item["Descrição"];
         item["categoria"] = item["NCM"] ? "produto" : "servico";
         item["valor"] = item["Valor"];
@@ -83,5 +83,11 @@ export class ProdutoController {
   @Delete()
   delete(@Request() req: any, @Query() podutoId: number) {
     return this.produtoService.delete(podutoId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("make-prd")
+  makePrd(@Request() req: any) {
+    return this.produtoService.createOrUpdateFromPayload();
   }
 }

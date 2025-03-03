@@ -42,6 +42,9 @@ export class Produto {
   @Column()
   ncm?: string;
 
+  @Column({ nullable: true, default: "und" })
+  unidade?: string;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 

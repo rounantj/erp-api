@@ -38,9 +38,12 @@ export class CaixaController {
   @Post("close")
   close(
     @Request() req: any,
-    @Body() { id, userId, saldoFinal, diferenca }: any
+    @Body() { caixaId, userId, saldoFinal, diferenca }: any
   ) {
-    return this.caixaService.close(id, userId, saldoFinal, diferenca);
+    if (!caixaId || !userId) {
+      throw new Error("Parâmetros inválidos");
+    }
+    return this.caixaService.close(caixaId, userId, saldoFinal, diferenca);
   }
 
   @UseGuards(JwtAuthGuard)

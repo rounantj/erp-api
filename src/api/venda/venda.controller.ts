@@ -17,19 +17,19 @@ import { VendasService } from "./venda.service";
 
 @Controller("vendas")
 export class VendasController {
-  constructor(private vendasservice: VendasService) { }
+  constructor(private vendasservice: VendasService) {}
 
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Request() req: any, @Body() venda: Venda) {
-    const user = req.user.sub
-    venda.user_id = user.id
+    const user = req.user.sub;
+    venda.user_id = user.id;
     return this.vendasservice.create(venda);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post("dashboard")
-  dashboard(@Request() req: any, res: any) {
+  dashboard(@Request() req: any, res: any): Promise<any> {
     return this.vendasservice.dashboard();
   }
 

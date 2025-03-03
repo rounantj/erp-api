@@ -26,39 +26,115 @@ export class FofaAiService {
 
   async curriculumGenerator(personalData: string): Promise<any> {
     const prompt = `
-  Você é um assistente especializado em criar currículos profissionais.
-  quero que com base nas informações fornecidas, você crie um currículo profissional para mim.
-  INSTRUÇÕES:
-  1. Vou te fornecer poucas informações pessoais, e você deve criar um currículo profissional.
-  2. O currículo deve ser conciso, objetivo e bem estruturado.
-  3. A saida deve ser preencher um json especifico com as informações solicitadas.
-  Ex.: "{"habilidades":["Manutenção preventiva","Reparo de equipamentos","Instalação de dispositivos","Normas de segurança elétrica","Leitura de diagramas elétricos","Instalações elétricas"],"informacoesAdicionais":"TESTE INFO","modelo":"simples","experiencias":[{"empresa":"Teste","cargo":"Teste","periodo":"2018-2019","descricao":"Teste"}],"cursos":[{"nome":"Teste","instituicao":"SENAI","ano":"2010"},{"nome":"Solda","instituicao":"SESI","ano":"2019"}],"foto":null,"nome":"Ronan Rodrigues","telefone":"2796011204","endereco":"ANTONIO COSTA, 200","objetivo":"Treinar e aprender"}"
+  Você é um assistente especializado em criar currículos profissionais completos.
+  Com base nas informações fornecidas, crie um currículo profissional detalhado.
   
-  As poucas informações que temos são:
+  INSTRUÇÕES:
+  1. Use as informações pessoais fornecidas para criar um currículo profissional completo.
+  2. O currículo deve ser conciso, objetivo e bem estruturado.
+  3. A saída deve ser EXCLUSIVAMENTE um JSON válido com todos os campos preenchidos conforme o exemplo.
+  4. NÃO inclua comentários, marcadores de código ou qualquer texto fora do JSON.
+  5. ATENÇÃO: Você DEVE retornar APENAS o objeto JSON puro, sem qualquer texto explicativo, prefixos ou suffixos.
+  
+  REGRAS OBRIGATÓRIAS:
+  - Sempre preencha TODOS os campos do JSON, mesmo que precise criar dados plausíveis baseados no contexto fornecido.
+  - O campo "objetivo" deve ter entre 200-300 caracteres e ser específico para a área de atuação.
+  - FORMAÇÃO ACADÊMICA: 
+    * Identifique e padronize qualquer menção a formação educacional (ex: "Ensino médio completo", "segundo grau completo", "ensino fundamental", etc.)
+    * Mapeie corretamente para os níveis: "Fundamental", "Médio", "Técnico", "Superior", "Pós-graduação", "Mestrado" ou "Doutorado"
+    * Se o status não for mencionado, considere "Completo" como padrão
+    * Se a escolaridade não for informada, crie uma formação plausível com base na experiência profissional
+    * Sempre inclua pelo menos uma entrada em "formacao" com informações completas (instituição, período)
+  - Habilidades devem ser relevantes para a área e incluir pelo menos 6 itens específicos.
+  - Experiências devem ter descrições detalhadas das responsabilidades (mínimo 100 caracteres).
+  
+  ESTRUTURA DO JSON:
+  {"habilidades":["Manutenção preventiva","Reparo de equipamentos","Instalação de dispositivos","Normas de segurança elétrica","Leitura de diagramas elétricos","Instalações elétricas"],"informacoesAdicionais":"TESTE INFO","modelo":"simples","experiencias":[{"empresa":"Teste","cargo":"Teste","periodo":"2018-2019","descricao":"Teste"}],"cursos":[{"nome":"Teste","instituicao":"SENAI","ano":"2010"},{"nome":"Solda","instituicao":"SESI","ano":"2019"}],"foto":null,"nome":"Ronan Rodrigues","telefone":"2796011204","endereco":"ANTONIO COSTA, 200","objetivo":"Treinar e aprender"}
+  
+  DICIONÁRIO DE FORMAÇÃO ACADÊMICA:
+  - Termos para Ensino Fundamental: "ensino fundamental", "primeiro grau", "1º grau", "fundamental"
+  - Termos para Ensino Médio: "ensino médio", "segundo grau", "2º grau", "colegial"
+  - Termos para Ensino Superior: "graduação", "faculdade", "ensino superior", "bacharelado", "licenciatura"
+  - Observe status como: "completo", "incompleto", "cursando", "em andamento"
+  
+  EXEMPLOS DE INTERPRETAÇÃO:
+  1. Se informado "Ensino médio completo" → Nível: "Médio", Status: "Completo"
+  2. Se informado "Segundo grau" → Nível: "Médio", Status: "Completo"
+  3. Se informado "Curso técnico em elétrica no SENAI" → Nível: "Técnico", Curso: "Elétrica", Instituição: "SENAI"
+  4. Se informado "Faculdade de Administração incompleta" → Nível: "Superior", Curso: "Administração", Status: "Incompleto"
+  
+  IMPORTANTE: Sua resposta deve conter APENAS o objeto JSON sem nenhum texto adicional.
+  
+  As informações que temos são:
   ${personalData}`;
 
     try {
       const resultado = await this.queryAI(prompt);
-      const textoResposta = resultado.text
+
+      // Limpe qualquer texto que não seja JSON
+      let cleanedResponse = resultado.text.trim();
+
+      // Remove marcadores de código, se houver
+      cleanedResponse = cleanedResponse
+        .replace(/```json|```/g, "")
         .replace(/\n/g, "")
-        .replace(/```/g, "")
-        .replace(/json/g, "")
         .trim();
 
-      let curriculum;
-      try {
-        curriculum = JSON.parse(textoResposta);
+      // Encontra o primeiro '{' e o último '}'
+      const firstBrace = cleanedResponse.indexOf("{");
+      const lastBrace = cleanedResponse.lastIndexOf("}");
 
-        if (!curriculum) {
-          throw new Error("A resposta não é um JSON válido");
+      if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+        throw new Error("A resposta não contém um JSON válido");
+      }
+
+      // Extrai apenas o conteúdo JSON
+      const jsonContent = cleanedResponse.substring(firstBrace, lastBrace + 1);
+
+      try {
+        const curriculum = JSON.parse(jsonContent);
+
+        // Verificação de campos obrigatórios
+        const camposObrigatorios = [
+          "nome",
+          "objetivo",
+          "habilidades",
+          "experiencias",
+          "escolaridade",
+        ];
+
+        const camposFaltantes = camposObrigatorios.filter(
+          (campo) =>
+            !curriculum[campo] ||
+            (Array.isArray(curriculum[campo]) && curriculum[campo].length === 0)
+        );
+
+        if (camposFaltantes.length > 0) {
+          throw new Error(
+            `Campos obrigatórios faltando: ${camposFaltantes
+              .join(", ")
+              .toUpperCase()}`
+          );
+        }
+
+        // Verificação específica para formação acadêmica
+        if (!curriculum.escolaridade || curriculum.escolaridade.length === 0) {
+          throw new Error("A ESCOLARIDADE é obrigatória e não foi preenchida");
+        }
+
+        // Garantir que o objetivo tenha o tamanho adequado
+        if (curriculum.objetivo && curriculum.objetivo.length < 200) {
+          console.warn(
+            "O objetivo profissional está muito curto, deveria ter entre 200-300 caracteres"
+          );
         }
 
         return curriculum;
-      } catch (parseError) {
+      } catch (parseError: any) {
         console.error("Erro ao processar resposta:", parseError);
-        throw new Error("Não foi possível processar a resposta da IA");
+        throw new Error(`Erro ao processar JSON: ${parseError?.message}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao processar currículo:", error);
       throw error;
     }
