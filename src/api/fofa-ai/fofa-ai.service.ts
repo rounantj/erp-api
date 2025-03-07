@@ -49,7 +49,7 @@ export class FofaAiService {
   - Experiências devem ter descrições detalhadas das responsabilidades (mínimo 100 caracteres).
   
   ESTRUTURA DO JSON:
-  {"habilidades":["Manutenção preventiva","Reparo de equipamentos","Instalação de dispositivos","Normas de segurança elétrica","Leitura de diagramas elétricos","Instalações elétricas"],"informacoesAdicionais":"TESTE INFO","modelo":"simples","experiencias":[{"empresa":"Teste","cargo":"Teste","periodo":"2018-2019","descricao":"Teste"}],"cursos":[{"nome":"Teste","instituicao":"SENAI","ano":"2010"},{"nome":"Solda","instituicao":"SESI","ano":"2019"}],"foto":null,"nome":"Ronan Rodrigues","telefone":"2796011204","endereco":"ANTONIO COSTA, 200","objetivo":"Treinar e aprender"}
+  {"escolaridade":"Ensino Fundamental Completo","habilidades":["Manutenção preventiva","Reparo de equipamentos","Instalação de dispositivos","Normas de segurança elétrica","Leitura de diagramas elétricos","Instalações elétricas"],"informacoesAdicionais":"TESTE INFO","modelo":"simples","experiencias":[{"empresa":"Teste","cargo":"Teste","periodo":"2018-2019","descricao":"Teste"}],"cursos":[{"nome":"Teste","instituicao":"SENAI","ano":"2010"},{"nome":"Solda","instituicao":"SESI","ano":"2019"}],"foto":null,"nome":"Ronan Rodrigues","telefone":"2796011204","endereco":"ANTONIO COSTA, 200","objetivo":"Treinar e aprender"}
   
   DICIONÁRIO DE FORMAÇÃO ACADÊMICA:
   - Termos para Ensino Fundamental: "ensino fundamental", "primeiro grau", "1º grau", "fundamental"
@@ -58,7 +58,7 @@ export class FofaAiService {
   - Observe status como: "completo", "incompleto", "cursando", "em andamento"
   
   EXEMPLOS DE INTERPRETAÇÃO:
-  1. Se informado "Ensino médio completo" → Nível: "Médio", Status: "Completo"
+  1. Se informado "Ensino médio completo" → Nível: "Médio", Statu s: "Completo"
   2. Se informado "Segundo grau" → Nível: "Médio", Status: "Completo"
   3. Se informado "Curso técnico em elétrica no SENAI" → Nível: "Técnico", Curso: "Elétrica", Instituição: "SENAI"
   4. Se informado "Faculdade de Administração incompleta" → Nível: "Superior", Curso: "Administração", Status: "Incompleto"
