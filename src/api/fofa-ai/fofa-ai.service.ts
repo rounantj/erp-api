@@ -27,46 +27,74 @@ export class FofaAiService {
   async curriculumGenerator(personalData: string): Promise<any> {
     const prompt = `
   Você é um assistente especializado em criar currículos profissionais completos.
-  Com base nas informações fornecidas, crie um currículo profissional detalhado.
-  
-  INSTRUÇÕES:
-  1. Use as informações pessoais fornecidas para criar um currículo profissional completo.
-  2. O currículo deve ser conciso, objetivo e bem estruturado.
-  3. A saída deve ser EXCLUSIVAMENTE um JSON válido com todos os campos preenchidos conforme o exemplo.
-  4. NÃO inclua comentários, marcadores de código ou qualquer texto fora do JSON.
-  5. ATENÇÃO: Você DEVE retornar APENAS o objeto JSON puro, sem qualquer texto explicativo, prefixos ou suffixos.
-  
-  REGRAS OBRIGATÓRIAS:
-  - Sempre preencha TODOS os campos do JSON, mesmo que precise criar dados plausíveis baseados no contexto fornecido.
-  - O campo "objetivo" deve ter entre 200-300 caracteres e ser específico para a área de atuação.
-  - FORMAÇÃO ACADÊMICA: 
-    * Identifique e padronize qualquer menção a formação educacional (ex: "Ensino médio completo", "segundo grau completo", "ensino fundamental", etc.)
-    * Mapeie corretamente para os níveis: "Fundamental", "Médio", "Técnico", "Superior", "Pós-graduação", "Mestrado" ou "Doutorado"
-    * Se o status não for mencionado, considere "Completo" como padrão
-    * Se a escolaridade não for informada, crie uma formação plausível com base na experiência profissional
-    * Sempre inclua pelo menos uma entrada em "formacao" com informações completas (instituição, período)
-  - Habilidades devem ser relevantes para a área e incluir pelo menos 6 itens específicos.
-  - Experiências devem ter descrições detalhadas das responsabilidades (mínimo 100 caracteres).
-  
-  ESTRUTURA DO JSON:
-  {"escolaridade":"Ensino Fundamental Completo","habilidades":["Manutenção preventiva","Reparo de equipamentos","Instalação de dispositivos","Normas de segurança elétrica","Leitura de diagramas elétricos","Instalações elétricas"],"informacoesAdicionais":"TESTE INFO","modelo":"simples","experiencias":[{"empresa":"Teste","cargo":"Teste","periodo":"2018-2019","descricao":"Teste"}],"cursos":[{"nome":"Teste","instituicao":"SENAI","ano":"2010"},{"nome":"Solda","instituicao":"SESI","ano":"2019"}],"foto":null,"nome":"Ronan Rodrigues","telefone":"2796011204","endereco":"ANTONIO COSTA, 200","objetivo":"Treinar e aprender"}
-  
-  DICIONÁRIO DE FORMAÇÃO ACADÊMICA:
-  - Termos para Ensino Fundamental: "ensino fundamental", "primeiro grau", "1º grau", "fundamental"
-  - Termos para Ensino Médio: "ensino médio", "segundo grau", "2º grau", "colegial"
-  - Termos para Ensino Superior: "graduação", "faculdade", "ensino superior", "bacharelado", "licenciatura"
-  - Observe status como: "completo", "incompleto", "cursando", "em andamento"
-  
-  EXEMPLOS DE INTERPRETAÇÃO:
-  1. Se informado "Ensino médio completo" → Nível: "Médio", Statu s: "Completo"
-  2. Se informado "Segundo grau" → Nível: "Médio", Status: "Completo"
-  3. Se informado "Curso técnico em elétrica no SENAI" → Nível: "Técnico", Curso: "Elétrica", Instituição: "SENAI"
-  4. Se informado "Faculdade de Administração incompleta" → Nível: "Superior", Curso: "Administração", Status: "Incompleto"
-  
-  IMPORTANTE: Sua resposta deve conter APENAS o objeto JSON sem nenhum texto adicional.
-  
-  As informações que temos são:
-  ${personalData}`;
+Com base nas informações fornecidas, crie um currículo profissional detalhado.
+
+INSTRUÇÕES:
+0. NUNCA invente informações. Se uma informação não estiver disponível no contexto fornecido, deixe o campo VAZIO (array vazio para listas ou null para valores únicos).
+1. Use APENAS as informações pessoais fornecidas para criar um currículo profissional.
+2. O currículo deve ser conciso, objetivo e bem estruturado.
+3. A saída deve ser EXCLUSIVAMENTE um JSON válido com os campos preenchidos conforme o exemplo, ou vazios quando não houver informação.
+4. NÃO inclua comentários, marcadores de código ou qualquer texto fora do JSON.
+5. ATENÇÃO: Você DEVE retornar APENAS o objeto JSON puro, sem qualquer texto explicativo, prefixos ou suffixos.
+
+REGRAS OBRIGATÓRIAS:
+- Preencha APENAS os campos do JSON para os quais existam dados explícitos no contexto fornecido.
+- Campos sem informação devem ser retornados vazios: [] para arrays ou null para strings/valores simples.
+- O campo "objetivo" deve ser extraído do contexto se disponível, caso contrário, retorne null.
+- FORMAÇÃO ACADÊMICA: 
+  * Identifique e padronize qualquer menção a formação educacional (ex: "Ensino médio completo", "segundo grau completo")
+  * Mapeie corretamente para os níveis: "Fundamental", "Médio", "Técnico", "Superior", "Pós-graduação", "Mestrado" ou "Doutorado"
+  * Incremente o nome da escolaridade ao encontra-la, por ex: Medio => Ensino Medio Completo e etc. Não esqueça de incluir a escola (ou instituiçao de ensino) em escolaridade se a detectar.
+  * Se o status não for mencionado, considere "Completo" como padrão
+  * Se a escolaridade não for informada, retorne "escolaridade": null
+  * Se não houver informações sobre formação, retorne um array vazio em "formacao": []
+- Para habilidades, inclua apenas as mencionadas explicitamente no texto.
+- Experiências devem ter descrições exatas conforme mencionadas, sem invenções ou elaborações.
+
+ESTRUTURA DO JSON:
+{
+  "escolaridade": String ou null,
+  "habilidades": [Array de strings ou array vazio],
+  "informacoesAdicionais": String ou null,
+  "modelo": "simples",
+  "experiencias": [
+    {
+      "empresa": String ou null,
+      "cargo": String ou null,
+      "periodo": String ou null,
+      "descricao": String ou null
+    }
+  ] ou [],
+  "cursos": [
+    {
+      "nome": String ou null,
+      "instituicao": String ou null,
+      "ano": String ou null
+    }
+  ] ou [],
+  "foto": null,
+  "nome": String ou null,
+  "telefone": String ou null,
+  "endereco": String ou null,
+  "objetivo": String ou null
+}
+
+DICIONÁRIO DE FORMAÇÃO ACADÊMICA:
+- Termos para Ensino Fundamental: "ensino fundamental", "primeiro grau", "1º grau", "fundamental"
+- Termos para Ensino Médio: "ensino médio", "segundo grau", "2º grau", "colegial"
+- Termos para Ensino Superior: "graduação", "faculdade", "ensino superior", "bacharelado", "licenciatura"
+- Observe status como: "completo", "incompleto", "cursando", "em andamento"
+
+EXEMPLOS DE INTERPRETAÇÃO:
+1. Se informado "Ensino médio completo" → Nível: "Médio", Status: "Completo"
+2. Se informado "Segundo grau" → Nível: "Médio", Status: "Completo"
+3. Se informado "Curso técnico em elétrica no SENAI" → Nível: "Técnico", Curso: "Elétrica", Instituição: "SENAI"
+4. Se informado "Faculdade de Administração incompleta" → Nível: "Superior", Curso: "Administração", Status: "Incompleto"
+
+IMPORTANTE: Sua resposta deve conter APENAS o objeto JSON sem nenhum texto adicional. NUNCA invente informações que não estejam presentes no contexto fornecido.
+
+As informações que temos são:
+${personalData}`;
 
     try {
       const resultado = await this.queryAI(prompt);
@@ -111,7 +139,7 @@ export class FofaAiService {
 
         if (camposFaltantes.length > 0) {
           throw new Error(
-            `Campos obrigatórios faltando: ${camposFaltantes
+            `Informações importantes faltando: ${camposFaltantes
               .join(", ")
               .toUpperCase()}`
           );
@@ -132,7 +160,7 @@ export class FofaAiService {
         return curriculum;
       } catch (parseError: any) {
         console.error("Erro ao processar resposta:", parseError);
-        throw new Error(`Erro ao processar JSON: ${parseError?.message}`);
+        throw new Error(`${parseError?.message}`);
       }
     } catch (error: any) {
       console.error("Erro ao processar currículo:", error);
