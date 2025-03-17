@@ -6,6 +6,7 @@ import * as FormData from "form-data";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { UnitOfWorkService } from "@/infra/unit-of-work";
 import { ILike, In, IsNull, LessThan } from "typeorm";
+import { Curriculum } from "@/domain/entities/curriculum.entity";
 
 @Injectable()
 export class FofaAiService {
@@ -579,5 +580,26 @@ ${personalData}`;
     }
 
     return "application/octet-stream";
+  }
+
+  public async curriculumCreated(
+    usingAi: boolean,
+    userId: number,
+    companyId: number,
+    content: any,
+    prompt?: string
+  ): Promise<any> {
+    let newCurriculum: Curriculum = {} as Curriculum;
+    newCurriculum.createdAt = new Date();
+    newCurriculum.updatedAt = new Date();
+    newCurriculum.createdByUser = userId.toString();
+    newCurriculum.updatedByUser = userId.toString();
+    newCurriculum.companyId = companyId;
+    newCurriculum.content = content;
+    newCurriculum.usingAi = usingAi;
+    newCurriculum.content = content;
+    newCurriculum.prompt = prompt;
+    const newItem = await this.uow.curriculumRepository.save(newCurriculum);
+    return newItem;
   }
 }

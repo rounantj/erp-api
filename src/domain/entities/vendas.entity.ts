@@ -66,6 +66,35 @@ export class Venda {
   @DeleteDateColumn({ name: "deleted_at", nullable: true })
   deletedAt: Date;
 
+  // Novas colunas para controle de solicitação de exclusão
+  @Column({ name: "exclusion_requested", default: false })
+  exclusionRequested: boolean;
+
+  @Column({ name: "exclusion_requested_at", nullable: true })
+  exclusionRequestedAt: Date;
+
+  @Column({ name: "exclusion_requested_by", nullable: true })
+  exclusionRequestedBy: number;
+
+  @Column({ name: "exclusion_reason", nullable: true, type: "text" })
+  exclusionReason: string;
+
+  @Column({
+    name: "exclusion_status",
+    nullable: true,
+    enum: ["pending", "approved", "rejected"],
+  })
+  exclusionStatus: string;
+
+  @Column({ name: "exclusion_reviewed_at", nullable: true })
+  exclusionReviewedAt: Date;
+
+  @Column({ name: "exclusion_reviewed_by", nullable: true })
+  exclusionReviewedBy: number;
+
+  @Column({ name: "exclusion_review_notes", nullable: true, type: "text" })
+  exclusionReviewNotes: string;
+
   @ManyToOne(() => Caixa, { nullable: true })
   @JoinColumn({ name: "caixa", referencedColumnName: "id" })
   caixa: Caixa;
@@ -77,4 +106,12 @@ export class Venda {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "created_by_user", referencedColumnName: "id" })
   createdBy: User;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "exclusion_requested_by", referencedColumnName: "id" })
+  exclusionRequestedByUser: User;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "exclusion_reviewed_by", referencedColumnName: "id" })
+  exclusionReviewedByUser: User;
 }

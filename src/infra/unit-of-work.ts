@@ -1,6 +1,7 @@
 import { Caixa } from "@/domain/entities/caixa.entity";
 import { CompanySetup } from "@/domain/entities/company-setup.entity";
 import { Company } from "@/domain/entities/company.entity";
+import { Curriculum } from "@/domain/entities/curriculum.entity";
 import { Despesa } from "@/domain/entities/despesas.entity";
 import { MovimentacaoCaixa } from "@/domain/entities/movimentacao_caixa.entity";
 import { ProductImages } from "@/domain/entities/product_image.entity";
@@ -82,5 +83,9 @@ export class UnitOfWorkService {
 
   get caixaRepository(): Repository<Caixa> {
     return this.getManager().getRepository(Caixa);
+  }
+
+  get curriculumRepository(): Repository<Curriculum> {
+    return this.getManager().getRepository(Curriculum);
   }
 }

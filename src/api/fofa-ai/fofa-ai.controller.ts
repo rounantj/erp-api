@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Post,
   Res,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "@/domain/auth/jwt-auth.guard";
@@ -42,6 +43,30 @@ export class FofaAiController {
       return response.status(HttpStatus.OK).json({
         success: false,
         message: error.message || "Erro ao gerar currículo contate o Ronan",
+        error: error,
+      });
+    }
+  }
+  @UseGuards(JwtAuthGuard)
+  @Post("created-curriculo")
+  async curriculoCreated(
+    @Body() data: { content: string; usingAi: boolean; prompt: string },
+    @Res() response: any,
+    @Req() request: any
+  ) {
+    try {
+      const result = await this.fofaAiService.curriculumCreated(
+        data.usingAi,
+        request.user.sub.id,
+        request.user.sub.id,
+        data.content,
+        data.prompt
+      );
+      return response.status(HttpStatus.OK).json(result);
+    } catch (error: any) {
+      return response.status(HttpStatus.OK).json({
+        success: false,
+        message: error.message || "Erro ao guardar currículo contate o Ronan",
         error: error,
       });
     }

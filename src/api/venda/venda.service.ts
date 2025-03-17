@@ -502,4 +502,145 @@ export class VendasService {
   async delete(vendaId: number) {
     return await this.uow.vendaRepository.delete(vendaId);
   }
+
+  // Metodos novos
+  /**
+   * Solicita a exclusão de uma venda
+   *
+   * @param vendaId ID da venda a ser excluída
+   * @param requestedById ID do usuário que está solicitando a exclusão
+   * @param reason Motivo da solicitação de exclusão
+   * @returns A venda atualizada com a solicitação de exclusão
+   */
+  async requestExclusion(
+    vendaId: number,
+    requestedById: number,
+    reason: string
+  ): Promise<Venda> {
+    // Verificar se a venda existe
+    const venda = await this.uow.vendaRepository.findOne({
+      where: {
+        id: vendaId,
+      },
+    });
+
+    if (!venda) {
+      throw new Error("Venda não encontrada");
+    }
+
+    // Verificar se já existe uma solicitação pendente
+    if (venda.exclusionRequested && venda.exclusionStatus === "pending") {
+      throw new Error(
+        "Já existe uma solicitação de exclusão pendente para esta venda"
+      );
+    }
+
+    // Atualizar a venda com os dados da solicitação
+    venda.exclusionRequested = true;
+    venda.exclusionRequestedAt = new Date();
+    venda.exclusionRequestedBy = requestedById;
+    venda.exclusionReason = reason;
+    venda.exclusionStatus = "pending";
+
+    // Salvar as alterações
+    return await this.uow.vendaRepository.save(venda);
+  }
+
+  /**
+   * Aprova uma solicitação de exclusão de venda
+   *
+   * @param vendaId ID da venda cuja exclusão será aprovada
+   * @param reviewedById ID do administrador que está aprovando a exclusão
+   * @param notes Observações adicionais sobre a aprovação (opcional)
+   * @returns A venda que foi excluída (soft-delete)
+   */
+  async approveExclusion(
+    vendaId: number,
+    reviewedById: number,
+    notes?: string
+  ): Promise<Venda> {
+    // Verificar se a venda existe e se há uma solicitação pendente
+    const venda = await this.uow.vendaRepository.findOne({
+      where: {
+        id: vendaId,
+      },
+    });
+
+    if (!venda) {
+      throw new Error("Venda não encontrada");
+    }
+
+    if (!venda.exclusionRequested || venda.exclusionStatus !== "pending") {
+      throw new Error(
+        "Não existe uma solicitação de exclusão pendente para esta venda"
+      );
+    }
+
+    // Atualizar status da solicitação
+    venda.exclusionStatus = "approved";
+    venda.exclusionReviewedAt = new Date();
+    venda.exclusionReviewedBy = reviewedById;
+    venda.exclusionReviewNotes = notes || "";
+
+    // Salvar as alterações
+    await this.uow.vendaRepository.save(venda);
+
+    // Executar o soft-delete
+    return await this.uow.vendaRepository.softRemove(venda);
+  }
+
+  /**
+   * Rejeita uma solicitação de exclusão de venda
+   *
+   * @param vendaId ID da venda cuja exclusão será rejeitada
+   * @param reviewedById ID do administrador que está rejeitando a exclusão
+   * @param notes Motivo da rejeição da solicitação
+   * @returns A venda atualizada com a solicitação rejeitada
+   */
+  async rejectExclusion(
+    vendaId: number,
+    reviewedById: number,
+    notes: string
+  ): Promise<Venda> {
+    // Verificar se a venda existe e se há uma solicitação pendente
+    const venda = await this.uow.vendaRepository.findOne({
+      where: {
+        id: vendaId,
+      },
+    });
+
+    if (!venda) {
+      throw new Error("Venda não encontrada");
+    }
+
+    if (!venda.exclusionRequested || venda.exclusionStatus !== "pending") {
+      throw new Error(
+        "Não existe uma solicitação de exclusão pendente para esta venda"
+      );
+    }
+
+    // Atualizar status da solicitação
+    venda.exclusionStatus = "rejected";
+    venda.exclusionReviewedAt = new Date();
+    venda.exclusionReviewedBy = reviewedById;
+    venda.exclusionReviewNotes = notes;
+
+    // Salvar as alterações
+    return await this.uow.vendaRepository.save(venda);
+  }
+
+  /**
+   * Lista todas as vendas com solicitação de exclusão pendente
+   *
+   * @returns Lista de vendas com solicitação de exclusão pendente
+   */
+  async getPendingExclusionRequests(): Promise<Venda[]> {
+    return await this.uow.vendaRepository.find({
+      where: {
+        exclusionRequested: true,
+        exclusionStatus: "pending",
+      },
+      relations: ["exclusionRequestedByUser"], // Carrega o relacionamento com o usuário que solicitou
+    });
+  }
 }
