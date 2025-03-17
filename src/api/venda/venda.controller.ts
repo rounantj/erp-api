@@ -163,4 +163,27 @@ export class VendasController {
       );
     }
   }
+
+  /**
+   * Lista todas as solicitações de exclusão pendentes
+   * GET /vendas/pending-exclusions
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post("top-selling-products")
+  async getTopSeling(
+    @Request() req: any,
+    @Body() data: { startDate: Date; endDate: Date }
+  ) {
+    try {
+      return await this.vendasservice.getTopSellingItems(
+        data.startDate,
+        data.endDate
+      );
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || "Falha ao obter mais vendidos",
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 }

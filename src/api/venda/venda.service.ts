@@ -255,7 +255,7 @@ export class VendasService {
       });
 
       const dias = Array.from(diasSet) as string[];
-      dias.sort((a, b) => {
+      dias.sort((a: any, b: any) => {
         const [dayA, monthA] = a.split("/").map(Number);
         const [dayB, monthB] = b.split("/").map(Number);
         return monthA === monthB ? dayA - dayB : monthA - monthB;
@@ -301,12 +301,14 @@ export class VendasService {
 
       // Cálculos de totais com validação de valores
       const totalProdutos = produtos.reduce(
-        (sum, item) => sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
+        (sum: any, item: any) =>
+          sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
         0
       );
 
       const totalServicos = servicos.reduce(
-        (sum, item) => sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
+        (sum: any, item: any) =>
+          sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
         0
       );
 
@@ -350,7 +352,8 @@ export class VendasService {
 
         // Calcular valores para o dia
         const totalDia = prodsDia.reduce(
-          (sum, item) => sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
+          (sum: any, item: any) =>
+            sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
           0
         );
         fullValues.push(totalDia);
@@ -364,7 +367,8 @@ export class VendasService {
         );
 
         const totalServicoDia = servicosDia.reduce(
-          (sum, item) => sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
+          (sum: any, item: any) =>
+            sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
           0
         );
         servicosValues.push(totalServicoDia);
@@ -380,7 +384,8 @@ export class VendasService {
         );
 
         const totalProdutoDia = produtosDia.reduce(
-          (sum, item) => sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
+          (sum: any, item: any) =>
+            sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
           0
         );
         produtosValues.push(totalProdutoDia);
@@ -424,12 +429,14 @@ export class VendasService {
 
         // Calcular totais mensais com verificação de NaN
         const totalProdutosMes = produtosMes.reduce(
-          (sum, item) => sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
+          (sum: any, item: any) =>
+            sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
           0
         );
 
         const totalServicosMes = servicosMes.reduce(
-          (sum, item) => sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
+          (sum: any, item: any) =>
+            sum + (isNaN(item.valorTotal) ? 0 : item.valorTotal),
           0
         );
 
@@ -642,5 +649,255 @@ export class VendasService {
       },
       relations: ["exclusionRequestedByUser"], // Carrega o relacionamento com o usuário que solicitou
     });
+  }
+
+  /**
+   * Obtém estatísticas detalhadas de produtos e serviços mais vendidos para dashboard
+   *
+   * @param startDate Data de início do período
+   * @param endDate Data de fim do período
+   * @returns Estatísticas de produtos e serviços mais vendidos
+   */
+  async getTopSellingItems(startDate: Date, endDate: Date): Promise<any> {
+    try {
+      // Formatar datas para pesquisa SQL
+      const formattedStart = moment(startDate).format("YYYY-MM-DD");
+      const formattedEnd = moment(endDate).format("YYYY-MM-DD");
+
+      // Consulta SQL que funcionava anteriormente
+      const query = `
+        WITH RECURSIVE produtos_expandidos AS (
+          SELECT 
+            v.id as venda_id,
+            v.created_at,
+            (p->>'id')::integer as produto_id,
+            p->>'descricao' as produto_descricao,
+            p->>'categoria' as categoria_json,
+            CASE 
+              WHEN p->>'categoria' IS NULL OR LOWER(p->>'categoria') = 'serviço' OR LOWER(p->>'categoria') = 'servico' THEN 'serviço'
+              ELSE 'produto'
+            END as tipo_item,
+            (p->>'quantidade')::integer as quantidade,
+            CASE WHEN p->>'valor' IS NOT NULL THEN (p->>'valor')::numeric ELSE NULL END as valor_unitario_json,
+            v.total
+          FROM 
+            venda v,
+            jsonb_array_elements(v.produtos::jsonb) AS p
+          WHERE 
+            v.deleted_at IS NULL
+            AND v.created_at BETWEEN '${formattedStart}' AND '${formattedEnd}'
+        ),
+        
+        produtos_completos AS (
+          SELECT
+            pe.*,
+            -- Priorizar a categoria da tabela de produtos, só usar a do JSON se não existir na tabela
+            COALESCE(p.categoria, pe.categoria_json) as categoria_final,
+            -- Fornecer um valor padrão (0) quando ambos forem NULL
+            COALESCE(pe.valor_unitario_json, p.valor, 0) as valor_unitario,
+            -- Calcular valor total com tratamento de NULL
+            (COALESCE(pe.valor_unitario_json, p.valor, 0) * pe.quantidade) as valor_total_item
+          FROM
+            produtos_expandidos pe
+            LEFT JOIN produto p ON pe.produto_id = p.id
+        ),
+        
+        produtos_finais AS (
+          SELECT
+            *,
+            CASE 
+              WHEN categoria_final IS NULL OR LOWER(categoria_final) = 'serviço' OR LOWER(categoria_final) = 'servico' THEN 'serviço'
+              ELSE 'produto'
+            END as tipo_final
+          FROM
+            produtos_completos
+        ),
+        
+        totais AS (
+          SELECT 
+            produto_id,
+            produto_descricao,
+            categoria_final,
+            tipo_final as tipo_item,
+            SUM(quantidade) as total_quantidade,
+            COUNT(DISTINCT venda_id) as total_vendas,
+            SUM(valor_total_item) as valor_total_vendido,
+            AVG(valor_unitario) as preco_medio_unitario
+          FROM 
+            produtos_finais
+          GROUP BY 
+            produto_id, produto_descricao, categoria_final, tipo_final
+        ),
+        
+        ranking_produtos_qtd AS (
+          SELECT 
+            'Produto' as tipo,
+            produto_id,
+            produto_descricao,
+            categoria_final,
+            total_quantidade,
+            total_vendas,
+            preco_medio_unitario,
+            valor_total_vendido,
+            RANK() OVER (ORDER BY total_quantidade DESC) as ranking_qtd,
+            RANK() OVER (ORDER BY valor_total_vendido DESC) as ranking_valor
+          FROM 
+            totais
+          WHERE 
+            tipo_item = 'produto'
+        ),
+        
+        ranking_servicos_qtd AS (
+          SELECT 
+            'Serviço' as tipo,
+            produto_id,
+            produto_descricao,
+            categoria_final,
+            total_quantidade,
+            total_vendas,
+            preco_medio_unitario,
+            valor_total_vendido,
+            RANK() OVER (ORDER BY total_quantidade DESC) as ranking_qtd,
+            RANK() OVER (ORDER BY valor_total_vendido DESC) as ranking_valor
+          FROM 
+            totais
+          WHERE 
+            tipo_item = 'serviço'
+        )
+        
+        (SELECT 
+          tipo,
+          produto_id,
+          produto_descricao,
+          categoria_final as categoria,
+          preco_medio_unitario as preco_unitario,
+          total_quantidade,
+          total_vendas,
+          valor_total_vendido,
+          ranking_qtd as ranking_por_quantidade,
+          ranking_valor as ranking_por_valor
+        FROM 
+          ranking_produtos_qtd
+        WHERE 
+          ranking_qtd <= 100 OR ranking_valor <= 100)
+        
+        UNION ALL
+        
+        (SELECT 
+          tipo,
+          produto_id,
+          produto_descricao,
+          categoria_final as categoria,
+          preco_medio_unitario as preco_unitario,
+          total_quantidade,
+          total_vendas,
+          valor_total_vendido,
+          ranking_qtd as ranking_por_quantidade,
+          ranking_valor as ranking_por_valor
+        FROM 
+          ranking_servicos_qtd
+        WHERE 
+          ranking_qtd <= 100 OR ranking_valor <= 100)
+        
+        ORDER BY 
+          tipo, 
+          ranking_por_quantidade
+      `;
+
+      const rawResults = await this.uow.vendaRepository.query(query);
+
+      // O restante do método permanece igual
+      // Calcular totais gerais
+      const totalProdutos = rawResults
+        .filter((item: any) => item.tipo === "Produto")
+        .reduce(
+          (sum: any, item: any) => sum + parseFloat(item.valor_total_vendido),
+          0
+        );
+
+      const totalServicos = rawResults
+        .filter((item: any) => item.tipo === "Serviço")
+        .reduce(
+          (sum: any, item: any) => sum + parseFloat(item.valor_total_vendido),
+          0
+        );
+
+      const totalQuantidadeProdutos = rawResults
+        .filter((item: any) => item.tipo === "Produto")
+        .reduce(
+          (sum: any, item: any) => sum + parseInt(item.total_quantidade),
+          0
+        );
+
+      const totalQuantidadeServicos = rawResults
+        .filter((item: any) => item.tipo === "Serviço")
+        .reduce(
+          (sum: any, item: any) => sum + parseInt(item.total_quantidade),
+          0
+        );
+
+      // Organizar resultados por tipo (produto/serviço) e ranking (quantidade/valor)
+      const topProdutosPorQuantidade = rawResults
+        .filter((item: any) => item.tipo === "Produto")
+        .sort(
+          (a: any, b: any) =>
+            a.ranking_por_quantidade - b.ranking_por_quantidade
+        )
+        .slice(0, 100);
+
+      const topProdutosPorValor = rawResults
+        .filter((item: any) => item.tipo === "Produto")
+        .sort((a: any, b: any) => a.ranking_por_valor - b.ranking_por_valor)
+        .slice(0, 100);
+
+      const topServicosPorQuantidade = rawResults
+        .filter((item: any) => item.tipo === "Serviço")
+        .sort(
+          (a: any, b: any) =>
+            a.ranking_por_quantidade - b.ranking_por_quantidade
+        )
+        .slice(0, 100);
+
+      const topServicosPorValor = rawResults
+        .filter((item: any) => item.tipo === "Serviço")
+        .sort((a: any, b: any) => a.ranking_por_valor - b.ranking_por_valor)
+        .slice(0, 100);
+
+      // Retornar dados organizados para o dashboard
+      return {
+        periodo: {
+          inicio: startDate,
+          fim: endDate,
+          diasTotal: moment(endDate).diff(moment(startDate), "days") + 1,
+        },
+        resumo: {
+          totalProdutos: totalProdutos,
+          totalServicos: totalServicos,
+          totalVendas: totalProdutos + totalServicos,
+          percentualProdutos:
+            (totalProdutos / (totalProdutos + totalServicos || 1)) * 100,
+          percentualServicos:
+            (totalServicos / (totalProdutos + totalServicos || 1)) * 100,
+          totalQuantidadeProdutos,
+          totalQuantidadeServicos,
+        },
+        rankings: {
+          produtosPorQuantidade: topProdutosPorQuantidade,
+          produtosPorValor: topProdutosPorValor,
+          servicosPorQuantidade: topServicosPorQuantidade,
+          servicosPorValor: topServicosPorValor,
+        },
+        // Raw data para uso avançado
+        rawData: rawResults,
+      };
+    } catch (error: any) {
+      console.error(
+        "Erro ao obter estatísticas de itens mais vendidos:",
+        error
+      );
+      throw new Error(
+        `Falha ao processar dados para dashboard: ${error.message}`
+      );
+    }
   }
 }
