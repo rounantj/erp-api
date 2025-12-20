@@ -229,16 +229,26 @@ export class CompaniesService {
 
     // Validar role
     const allowedRoles = ["admin", "atendente", "visitante"];
-    const role = userData.role && allowedRoles.includes(userData.role) 
-      ? userData.role 
-      : "atendente";
+    const role =
+      userData.role && allowedRoles.includes(userData.role)
+        ? userData.role
+        : "atendente";
 
     // Hash da senha
-    console.log(`[CREATE USER DEBUG] Password received length: ${userData.password?.length}`);
+    console.log(
+      `[CREATE USER DEBUG] Password received length: ${userData.password?.length}`
+    );
     const hashedPassword = await bcrypt.hash(userData.password, 10);
-    console.log(`[CREATE USER DEBUG] Hashed password length: ${hashedPassword?.length}`);
-    console.log(`[CREATE USER DEBUG] Hash starts with: ${hashedPassword?.substring(0, 10)}`);
-    
+    console.log(
+      `[CREATE USER DEBUG] Hashed password length: ${hashedPassword?.length}`
+    );
+    console.log(
+      `[CREATE USER DEBUG] Hash starts with: ${hashedPassword?.substring(
+        0,
+        10
+      )}`
+    );
+
     // Verificar se o hash foi criado corretamente
     const testCompare = await bcrypt.compare(userData.password, hashedPassword);
     console.log(`[CREATE USER DEBUG] Test compare result: ${testCompare}`);

@@ -12,7 +12,11 @@ import {
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
-import { CompaniesService, CreateCompanyDto, CreateUserForCompanyDto } from "./companies.service";
+import {
+  CompaniesService,
+  CreateCompanyDto,
+  CreateUserForCompanyDto,
+} from "./companies.service";
 import { JwtAuthGuard } from "@/domain/auth/jwt-auth.guard";
 import { SuperAdminGuard } from "@/domain/auth/guard/super-admin.guard";
 import { CompanySetup } from "@/domain/entities/company-setup.entity";
@@ -196,8 +200,8 @@ export class CompaniesController {
         userData,
         createdByUserId
       );
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: "Usuário criado com sucesso",
         data: {
           id: user.id,
@@ -205,7 +209,7 @@ export class CompaniesController {
           name: user.name,
           role: user.role,
           companyId: user.companyId,
-        }
+        },
       };
     } catch (error: any) {
       throw new HttpException(
