@@ -22,6 +22,9 @@ export class ProductImages {
   @Column()
   base_64: string;
 
+  @Column({ default: 1 })
+  companyId: number;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 

@@ -7,19 +7,32 @@ import { IsNull, Not } from "typeorm";
 export class MovimentacaoService {
   constructor(private uow: UnitOfWorkService) {}
 
-  async upsert(movimentacao: MovimentacaoCaixa) {
+  async upsert(movimentacao: MovimentacaoCaixa, companyId?: number) {
     if (!movimentacao.caixa_id) return null;
+
+    if (companyId) {
+      movimentacao.companyId = companyId;
+    } else if (!movimentacao.companyId) {
+      movimentacao.companyId = 1; // fallback para compatibilidade
+    }
+
     return await this.uow.movimentacaoCaixaRepository.save(movimentacao);
   }
 
   async save(movimentacaos: MovimentacaoCaixa[]) {
     return await this.uow.movimentacaoCaixaRepository.save(movimentacaos);
   }
-  async getAll() {
+  async getAll(companyId?: number) {
+    const where: any = {
+      deletedAt: IsNull(),
+    };
+
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
     return await this.uow.movimentacaoCaixaRepository.find({
-      where: {
-        deletedAt: IsNull(),
-      },
+      where,
       order: {
         createdAt: "DESC",
       },

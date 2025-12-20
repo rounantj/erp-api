@@ -3,7 +3,23 @@ import { User } from "@/domain/entities/user.entity";
 import { lastedProds } from "@/helpers/prds";
 import { UnitOfWorkService } from "@/infra/unit-of-work";
 import { Injectable } from "@nestjs/common";
-import { IsNull, Not } from "typeorm";
+import { IsNull, Not, ILike } from "typeorm";
+
+export interface SearchProductsParams {
+  search?: string;
+  category?: string;
+  page?: number;
+  limit?: number;
+  companyId?: number;
+}
+
+export interface SearchProductsResult {
+  data: Produto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 @Injectable()
 export class ProdutoService {
@@ -18,11 +34,81 @@ export class ProdutoService {
   async save(produtos: Produto[]) {
     return await this.uow.produtoRepository.save(produtos);
   }
-  async getAll() {
+
+  async search(params: SearchProductsParams): Promise<SearchProductsResult> {
+    const { search, category, page = 1, limit = 30, companyId } = params;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.uow.produtoRepository
+      .createQueryBuilder("produto")
+      .where("produto.deletedAt IS NULL");
+
+    // Filtrar por companyId se fornecido
+    if (companyId) {
+      queryBuilder.andWhere("produto.companyId = :companyId", { companyId });
+    }
+
+    // Filtro por busca (descrição, id, ean)
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toLowerCase()}%`;
+      queryBuilder.andWhere(
+        "(LOWER(produto.descricao) LIKE :search OR CAST(produto.id AS TEXT) LIKE :search OR produto.ean LIKE :search)",
+        { search: searchTerm }
+      );
+    }
+
+    // Filtro por categoria
+    if (category && category !== "todos") {
+      if (category.toLowerCase() === "produtos") {
+        queryBuilder.andWhere(
+          "(LOWER(produto.categoria) = :cat1 OR LOWER(produto.categoria) = :cat2)",
+          { cat1: "produto", cat2: "produtos" }
+        );
+      } else if (
+        category.toLowerCase() === "serviços" ||
+        category.toLowerCase() === "servicos"
+      ) {
+        queryBuilder.andWhere(
+          "(LOWER(produto.categoria) = :cat1 OR LOWER(produto.categoria) = :cat2 OR LOWER(produto.categoria) = :cat3 OR LOWER(produto.categoria) = :cat4)",
+          {
+            cat1: "serviço",
+            cat2: "serviços",
+            cat3: "servico",
+            cat4: "servicos",
+          }
+        );
+      } else {
+        queryBuilder.andWhere("LOWER(produto.categoria) = :category", {
+          category: category.toLowerCase(),
+        });
+      }
+    }
+
+    // Ordenação e paginação
+    queryBuilder.orderBy("produto.updatedAt", "DESC").skip(skip).take(limit);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getAll(companyId?: number) {
+    const where: any = {
+      deletedAt: IsNull(),
+    };
+
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
     return await this.uow.produtoRepository.find({
-      where: {
-        deletedAt: IsNull(),
-      },
+      where,
       order: {
         updatedAt: "DESC",
       },
@@ -34,6 +120,85 @@ export class ProdutoService {
         id: produtoId,
       },
     });
+  }
+
+  // Buscar produto por código de barras (EAN) ou ID
+  async findByCode(code: string, companyId?: number): Promise<Produto | null> {
+    const cleanCode = code.toString().trim();
+    console.log(
+      `🔍 Buscando produto por código: "${cleanCode}" (companyId: ${companyId})`
+    );
+
+    // Verificar se é um ID válido (número pequeno, até 10 dígitos e menor que MAX_SAFE_INTEGER)
+    const parsedId = parseInt(cleanCode);
+    const isValidId =
+      !isNaN(parsedId) &&
+      parsedId > 0 &&
+      parsedId <= 2147483647 &&
+      cleanCode.length <= 10;
+
+    // Primeiro tenta buscar por ID (apenas se for um número válido para integer)
+    if (isValidId) {
+      const whereById: any = {
+        id: parsedId,
+        deletedAt: IsNull(),
+      };
+      if (companyId) {
+        whereById.companyId = companyId;
+      }
+
+      const byId = await this.uow.produtoRepository.findOne({
+        where: whereById,
+      });
+
+      if (byId) {
+        console.log(`✅ Produto encontrado por ID: ${byId.descricao}`);
+        return byId;
+      }
+    }
+
+    // Busca por EAN (exato)
+    const whereByEan: any = {
+      ean: cleanCode,
+      deletedAt: IsNull(),
+    };
+    if (companyId) {
+      whereByEan.companyId = companyId;
+    }
+
+    const byEan = await this.uow.produtoRepository.findOne({
+      where: whereByEan,
+    });
+
+    if (byEan) {
+      console.log(`✅ Produto encontrado por EAN: ${byEan.descricao}`);
+      return byEan;
+    }
+
+    // Tenta buscar por EAN com LIKE (caso tenha espaços ou zeros à esquerda)
+    const queryBuilder = this.uow.produtoRepository
+      .createQueryBuilder("produto")
+      .where("produto.deletedAt IS NULL")
+      .andWhere("(produto.ean LIKE :code OR TRIM(produto.ean) = :cleanCode)", {
+        code: `%${cleanCode}%`,
+        cleanCode: cleanCode,
+      });
+
+    if (companyId) {
+      queryBuilder.andWhere("produto.companyId = :companyId", { companyId });
+    }
+
+    const byEanLike = await queryBuilder.getOne();
+
+    if (byEanLike) {
+      console.log(
+        `✅ Produto encontrado por EAN (LIKE): ${byEanLike.descricao}`
+      );
+      return byEanLike;
+    }
+
+    console.log(`❌ Produto não encontrado com código: "${cleanCode}"`);
+    return null;
   }
   async delete(produto: any) {
     const id = Number(produto?.produtoId);

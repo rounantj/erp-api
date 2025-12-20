@@ -6,11 +6,13 @@ import {
   DeleteDateColumn,
   JoinColumn,
   PrimaryGeneratedColumn,
+  BeforeUpdate,
 } from "typeorm";
 import { Company } from "./company.entity";
 import { User } from "./user.entity";
 import { Produto } from "./produtos.entity";
 import { Caixa } from "./caixa.entity";
+import { Cliente } from "./cliente.entity";
 
 type ProdutoDeVenda = Produto & {
   quantidade: number;
@@ -51,10 +53,16 @@ export class Venda {
   @Column({ nullable: true })
   caixaId: number;
 
+  @Column({ nullable: true })
+  clienteId: number;
+
+  @Column({ default: 1 })
+  companyId: number;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @Column({ name: "updated_at" })
+  @Column({ name: "updated_at", default: () => "CURRENT_TIMESTAMP" })
   updatedAt: Date;
 
   @Column({ name: "updated_by_user", nullable: true })
@@ -114,4 +122,13 @@ export class Venda {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "exclusion_reviewed_by", referencedColumnName: "id" })
   exclusionReviewedByUser: User;
+
+  @ManyToOne(() => Cliente, { nullable: true })
+  @JoinColumn({ name: "clienteId", referencedColumnName: "id" })
+  cliente: Cliente;
+
+  @BeforeUpdate()
+  updateTimestamp() {
+    this.updatedAt = new Date();
+  }
 }

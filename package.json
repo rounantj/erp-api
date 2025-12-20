@@ -1,6 +1,10 @@
 {
   "name": "reboot-erp-api",
   "version": "1.0.1",
+  "overrides": {
+    "jsonwebtoken": "^9.0.2",
+    "buffer-equal-constant-time": "^1.0.1"
+  },
   "description": "",
   "author": "",
   "private": true,

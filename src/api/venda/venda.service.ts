@@ -12,7 +12,7 @@ moment.tz.setDefault("America/Sao_Paulo");
 export class VendasService {
   constructor(private uow: UnitOfWorkService) {}
 
-  async create(venda: Venda) {
+  async create(venda: Venda, companyId?: number) {
     // Buscar caixa no banco de dados
     const caixa = await this.uow.caixaRepository.findOne({
       where: { id: venda.caixaId },
@@ -21,6 +21,14 @@ export class VendasService {
       throw new Error("Caixa não encontrado");
     }
     venda.caixa = caixa;
+    venda.updatedAt = new Date();
+
+    // Definir companyId se fornecido
+    if (companyId) {
+      venda.companyId = companyId;
+    } else if (!venda.companyId) {
+      venda.companyId = 1; // fallback para compatibilidade
+    }
 
     return await this.uow.vendaRepository.save(venda);
   }
@@ -29,19 +37,23 @@ export class VendasService {
    * Gera dados do dashboard incluindo estatísticas de vendas, produtos vendidos,
    * e métricas de desempenho mensal de forma otimizada
    *
+   * @param companyId - ID da empresa para filtrar os dados
    * @returns Objeto com métricas completas de vendas e desempenho
    */
-  async dashboard(): Promise<any> {
+  async dashboard(companyId?: number): Promise<any> {
     try {
       // Períodos de data
       const firstDayOfMonth = moment().startOf("month").format("YYYY-MM-DD");
       const lastDayOfMonth = moment().endOf("month").format("YYYY-MM-DD");
 
+      // Filtro de companyId para queries SQL
+      const companyFilter = companyId ? `AND "companyId" = ${companyId}` : "";
+
       // Consultas otimizadas para maior velocidade
       const [despesa, serverDateTime] = await Promise.all([
-        // Consulta de despesas total
+        // Consulta de despesas total (filtrada por companyId)
         this.uow.vendaRepository.query(
-          `SELECT COALESCE(sum(valor), 0) as total from despesa`
+          `SELECT COALESCE(sum(valor), 0) as total from despesa WHERE 1=1 ${companyFilter}`
         ),
 
         // Consulta da data/hora do servidor
@@ -50,18 +62,20 @@ export class VendasService {
 
       // Consulta de vendas do mês atual e do ano - executadas em paralelo
       const [vendasMes, vendasAno] = await Promise.all([
-        // Vendas do mês
+        // Vendas do mês (filtradas por companyId)
         this.uow.vendaRepository.query(`
         SELECT * FROM venda 
         WHERE created_at BETWEEN '${firstDayOfMonth}' AND '${lastDayOfMonth}'
         AND deleted_at IS NULL
+        ${companyFilter}
       `),
 
-        // Vendas do ano
+        // Vendas do ano (filtradas por companyId)
         this.uow.vendaRepository.query(`
         SELECT * FROM venda
         WHERE EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
         AND deleted_at IS NULL
+        ${companyFilter}
       `),
       ]);
 
@@ -484,18 +498,60 @@ export class VendasService {
     }
   }
 
-  async getAll(rangeDate: any) {
+  async getAll(rangeDate: any, companyId?: number) {
+    console.log(
+      "getAll called with rangeDate:",
+      rangeDate,
+      "companyId:",
+      companyId
+    );
+
     const today = moment().format("YYYY-MM-DD");
     const oneMonthAgo = moment().subtract(1, "months").format("YYYY-MM-DD");
 
-    // Use default dates if not provided
-    const start = rangeDate.startDate ?? oneMonthAgo;
-    const end = rangeDate.endDate ?? today;
+    // Use default dates if not provided or if values are undefined/string 'undefined'
+    const start =
+      rangeDate?.startDate && rangeDate.startDate !== "undefined"
+        ? rangeDate.startDate
+        : oneMonthAgo;
+    const end =
+      rangeDate?.endDate && rangeDate.endDate !== "undefined"
+        ? rangeDate.endDate
+        : today;
+
+    console.log("Using dates - start:", start, "end:", end);
+
+    // Validar e formatar as datas com tratamento mais robusto
+    let startDate, endDate;
+
+    try {
+      startDate = moment(start).isValid()
+        ? moment(start).toDate()
+        : moment(oneMonthAgo).toDate();
+    } catch (error) {
+      console.log("Error parsing start date, using default:", error);
+      startDate = moment(oneMonthAgo).toDate();
+    }
+
+    try {
+      endDate = moment(end).isValid()
+        ? moment(end).toDate()
+        : moment(today).toDate();
+    } catch (error) {
+      console.log("Error parsing end date, using default:", error);
+      endDate = moment(today).toDate();
+    }
+
+    const where: any = {
+      createdAt: Between(startDate, endDate),
+    };
+
+    if (companyId) {
+      where.companyId = companyId;
+    }
 
     return await this.uow.vendaRepository.find({
-      where: {
-        createdAt: Between(new Date(start), new Date(end)),
-      },
+      where,
     });
   }
 
@@ -639,14 +695,21 @@ export class VendasService {
   /**
    * Lista todas as vendas com solicitação de exclusão pendente
    *
+   * @param companyId - ID da empresa para filtrar as solicitações
    * @returns Lista de vendas com solicitação de exclusão pendente
    */
-  async getPendingExclusionRequests(): Promise<Venda[]> {
+  async getPendingExclusionRequests(companyId?: number): Promise<Venda[]> {
+    const where: any = {
+      exclusionRequested: true,
+      exclusionStatus: "pending",
+    };
+
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
     return await this.uow.vendaRepository.find({
-      where: {
-        exclusionRequested: true,
-        exclusionStatus: "pending",
-      },
+      where,
       relations: ["exclusionRequestedByUser"], // Carrega o relacionamento com o usuário que solicitou
     });
   }
@@ -656,13 +719,21 @@ export class VendasService {
    *
    * @param startDate Data de início do período
    * @param endDate Data de fim do período
+   * @param companyId ID da empresa para filtrar
    * @returns Estatísticas de produtos e serviços mais vendidos
    */
-  async getTopSellingItems(startDate: Date, endDate: Date): Promise<any> {
+  async getTopSellingItems(
+    startDate: Date,
+    endDate: Date,
+    companyId?: number
+  ): Promise<any> {
     try {
       // Formatar datas para pesquisa SQL
       const formattedStart = moment(startDate).format("YYYY-MM-DD");
       const formattedEnd = moment(endDate).format("YYYY-MM-DD");
+
+      // Filtro de companyId
+      const companyFilter = companyId ? `AND v."companyId" = ${companyId}` : "";
 
       // Consulta SQL que funcionava anteriormente
       const query = `
@@ -686,6 +757,7 @@ export class VendasService {
           WHERE 
             v.deleted_at IS NULL
             AND v.created_at BETWEEN '${formattedStart}' AND '${formattedEnd}'
+            ${companyFilter}
         ),
         
         produtos_completos AS (

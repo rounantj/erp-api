@@ -31,7 +31,8 @@ export class DespesaController {
   @UseGuards(JwtAuthGuard)
   @Get()
   getAll(@Request() req: any) {
-    return this.DespesaService.getAll();
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.DespesaService.getAll(companyId);
   }
 
   @UseGuards(JwtAuthGuard)

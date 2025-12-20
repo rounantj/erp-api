@@ -16,11 +16,17 @@ export class DespesaService {
   async save(despesas: Despesa[]) {
     return await this.uow.despesaRepository.save(despesas);
   }
-  async getAll() {
+  async getAll(companyId?: number) {
+    const where: any = {
+      deletedAt: IsNull(),
+    };
+
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
     return await this.uow.despesaRepository.find({
-      where: {
-        deletedAt: IsNull(),
-      },
+      where,
       order: {
         updatedAt: "DESC",
       },

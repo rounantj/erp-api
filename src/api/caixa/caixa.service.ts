@@ -15,15 +15,18 @@ export class CaixaService {
   async save(movimentacaos: Caixa[]) {
     return await this.uow.caixaRepository.save(movimentacaos);
   }
-  async getAll() {
-    return await this.uow.caixaRepository.find({
-      where: {
-        deletedAt: IsNull(),
-      },
-      order: {
-        createdAt: "DESC",
-      },
-    });
+  async getAll(companyId?: number) {
+    const queryBuilder = this.uow.caixaRepository
+      .createQueryBuilder("caixa")
+      .leftJoinAndSelect("caixa.company", "company")
+      .where("caixa.deletedAt IS NULL")
+      .orderBy("caixa.createdAt", "DESC");
+
+    if (companyId) {
+      queryBuilder.andWhere("company.id = :companyId", { companyId });
+    }
+
+    return await queryBuilder.getMany();
   }
   async getOne(movimentacaoId: number): Promise<Caixa> {
     return await this.uow.caixaRepository.findOne({
@@ -34,10 +37,16 @@ export class CaixaService {
   }
 
   async getNoCloseds(companyId: number): Promise<Caixa[]> {
-    if (!companyId) companyId = 1;
-    return await this.uow.caixaRepository.find({
-      where: { fechamentoData: IsNull() },
-    });
+    if (!companyId) {
+      throw new Error("companyId é obrigatório");
+    }
+
+    return await this.uow.caixaRepository
+      .createQueryBuilder("caixa")
+      .leftJoinAndSelect("caixa.company", "company")
+      .where("caixa.fechamentoData IS NULL")
+      .andWhere("company.id = :companyId", { companyId })
+      .getMany();
   }
 
   async open(
@@ -45,7 +54,9 @@ export class CaixaService {
     userId: number,
     valorAbertura: number
   ): Promise<Caixa> {
-    if (!companyId) companyId = 1;
+    if (!companyId) {
+      throw new Error("companyId é obrigatório");
+    }
 
     // Buscar a empresa no banco de dados
     const company = await this.uow.companyRepository.findOne({
@@ -119,10 +130,19 @@ export class CaixaService {
           "COALESCE(SUM(CASE WHEN venda.metodoPagamento = 'credito' THEN venda.total ELSE 0 END), 0) AS credito",
           "COALESCE(SUM(CASE WHEN venda.metodoPagamento = 'debito' THEN venda.total ELSE 0 END), 0) AS debito",
           "COALESCE(SUM(venda.total), 0) AS total",
+          "COUNT(venda.id) AS totalVendas",
         ])
         .getRawOne();
 
-      return resumo;
+      // Converter para números (o SQL retorna strings)
+      return {
+        dinheiro: parseFloat(resumo.dinheiro) || 0,
+        pix: parseFloat(resumo.pix) || 0,
+        credito: parseFloat(resumo.credito) || 0,
+        debito: parseFloat(resumo.debito) || 0,
+        total: parseFloat(resumo.total) || 0,
+        totalVendas: parseInt(resumo.totalvendas) || 0,
+      };
     } catch (error) {
       console.error("Erro ao buscar resumo de vendas:", error);
       throw new Error("Erro ao buscar resumo de vendas.");

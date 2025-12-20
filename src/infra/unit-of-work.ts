@@ -1,4 +1,5 @@
 import { Caixa } from "@/domain/entities/caixa.entity";
+import { Cliente } from "@/domain/entities/cliente.entity";
 import { CompanySetup } from "@/domain/entities/company-setup.entity";
 import { Company } from "@/domain/entities/company.entity";
 import { Curriculum } from "@/domain/entities/curriculum.entity";
@@ -87,5 +88,9 @@ export class UnitOfWorkService {
 
   get curriculumRepository(): Repository<Curriculum> {
     return this.getManager().getRepository(Curriculum);
+  }
+
+  get clienteRepository(): Repository<Cliente> {
+    return this.getManager().getRepository(Cliente);
   }
 }

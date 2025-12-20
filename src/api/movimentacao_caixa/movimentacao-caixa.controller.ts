@@ -25,13 +25,15 @@ export class MovimentacaoCaixaController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Request() req: any, @Body() movimentacao: MovimentacaoCaixa) {
-    return this.produtoService.upsert(movimentacao);
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.produtoService.upsert(movimentacao, companyId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get()
   getAll(@Request() req: any) {
-    return this.produtoService.getAll();
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.produtoService.getAll(companyId);
   }
 
   @UseGuards(JwtAuthGuard)

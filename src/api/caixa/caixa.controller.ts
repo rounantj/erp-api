@@ -30,7 +30,8 @@ export class CaixaController {
 
   @UseGuards(JwtAuthGuard)
   @Post("open")
-  open(@Request() req: any, @Body() { companyId, userId, valorAbertura }: any) {
+  open(@Request() req: any, @Body() { userId, valorAbertura }: any) {
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
     return this.caixaService.open(companyId, userId, valorAbertura);
   }
 
@@ -49,15 +50,11 @@ export class CaixaController {
   @UseGuards(JwtAuthGuard)
   @Get()
   getAll(@Request() req: any) {
-    return this.caixaService.getAll();
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.caixaService.getAll(companyId);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get()
-  getOne(@Request() req: any, @Query() caixaId: number) {
-    return this.caixaService.getOne(caixaId);
-  }
-
+  // Rotas específicas ANTES da rota com parâmetro dinâmico
   @UseGuards(JwtAuthGuard)
   @Get("resumo")
   resumo(@Request() req: any, @Query() params: any) {
@@ -67,13 +64,24 @@ export class CaixaController {
 
   @UseGuards(JwtAuthGuard)
   @Get("no-closeds")
-  getNoCloseds(@Request() req: any, @Query() companyId: number) {
+  getNoCloseds(@Request() req: any) {
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    if (!companyId) {
+      throw new Error("Empresa não identificada");
+    }
     return this.caixaService.getNoCloseds(companyId);
   }
 
+  // Rota com parâmetro dinâmico por ÚLTIMO
   @UseGuards(JwtAuthGuard)
-  @Delete()
-  delete(@Request() req: any, @Query() caixaId: number) {
-    return this.caixaService.delete(caixaId);
+  @Get(":caixaId")
+  getOne(@Request() req: any, @Param("caixaId") caixaId: number) {
+    return this.caixaService.getOne(+caixaId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(":caixaId")
+  delete(@Request() req: any, @Param("caixaId") caixaId: number) {
+    return this.caixaService.delete(+caixaId);
   }
 }

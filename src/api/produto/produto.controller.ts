@@ -13,6 +13,7 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  NotFoundException,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "@/domain/auth/jwt-auth.guard";
 import { ProdutoService } from "./produto.service";
@@ -27,6 +28,10 @@ export class ProdutoController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Request() req: any, @Body() poduto: Produto) {
+    const user = req.user?.sub || req.user;
+    if (user?.companyId && !poduto.companyId) {
+      poduto.companyId = user.companyId;
+    }
     return this.produtoService.upsert(poduto);
   }
 
@@ -67,16 +72,45 @@ export class ProdutoController {
     }
   }
 
+  // Endpoint otimizado de busca com paginação
   @UseGuards(JwtAuthGuard)
-  @Get()
-  getAll(@Request() req: any) {
-    return this.produtoService.getAll();
+  @Get("search")
+  search(
+    @Request() req: any,
+    @Query("search") search?: string,
+    @Query("category") category?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string
+  ) {
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.produtoService.search({
+      search,
+      category,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 30,
+      companyId,
+    });
+  }
+
+  // Buscar produto por código de barras ou ID (para scanner)
+  @UseGuards(JwtAuthGuard)
+  @Get("by-code/:code")
+  findByCode(@Request() req: any, @Param("code") code: string) {
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.produtoService.findByCode(code, companyId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  getOne(@Request() req: any, @Query() podutoId: number) {
-    return this.produtoService.getOne(podutoId);
+  getAll(@Request() req: any) {
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.produtoService.getAll(companyId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(":id")
+  getOne(@Request() req: any, @Param("id") produtoId: number) {
+    return this.produtoService.getOne(produtoId);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -28,7 +28,7 @@ export class UserAuthUsecase {
   constructor(
     private readonly uow: UnitOfWorkService,
     private jwtService: JwtService
-  ) { }
+  ) {}
 
   private async updateLastAccess(id: number) {
     const updateUser = new User();
@@ -63,9 +63,10 @@ export class UserAuthUsecase {
       throw new Error("Password invalid");
     }
     const payload: PayloadAccessToken = {
+      id: user.id,
       password: user.password,
       email: user.email,
-      companyId: 1,
+      companyId: user.companyId,
     };
     return {
       user,
@@ -89,11 +90,13 @@ export class UserAuthUsecase {
     });
     if (user) {
       const payload: PayloadAccessToken = {
-        password: apiUser.password,
-        email: apiUser.email,
-        companyId: 1,
+        id: user.id,
+        password: user.password,
+        email: user.email,
+        companyId: user.companyId,
       };
       return {
+        user,
         access_token: this.jwtService.sign(payload),
       };
     }
@@ -105,16 +108,23 @@ export class UserAuthUsecase {
     user.username = apiUser?.username ?? "";
     user.role = apiUser?.role ?? "visitante";
     user.email = apiUser.email;
-    user.companyId = apiUser?.companyId;
+    user.companyId = apiUser?.companyId ?? 1;
     user.is_active = true;
     user.last_login = new Date();
     user.updatedAt = new Date();
     user.createdAt = new Date();
-    const payload = apiUser;
-    await this.uow.userRepository.save(user);
+
+    const savedUser = await this.uow.userRepository.save(user);
+
+    const payload: PayloadAccessToken = {
+      id: savedUser.id,
+      password: savedUser.password,
+      email: savedUser.email,
+      companyId: savedUser.companyId,
+    };
 
     return {
-      user,
+      user: savedUser,
       access_token: this.jwtService.sign(payload, { expiresIn: "3000y" }),
     };
   }
@@ -135,15 +145,23 @@ export class UserAuthUsecase {
     });
   }
 
-  async updateUserRule({ companyId, userName, userRule }: { companyId: number, userName: string, userRule: string }): Promise<any> {
+  async updateUserRule({
+    companyId,
+    userName,
+    userRule,
+  }: {
+    companyId: number;
+    userName: string;
+    userRule: string;
+  }): Promise<any> {
     const user: User = await this.uow.userRepository.findOne({
       where: {
         companyId,
-        username: userName
+        username: userName,
       },
     });
-    user.role = userRule
-    const result = await this.uow.userRepository.save(user)
-    return result
+    user.role = userRule;
+    const result = await this.uow.userRepository.save(user);
+    return result;
   }
 }

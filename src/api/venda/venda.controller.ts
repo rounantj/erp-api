@@ -34,32 +34,35 @@ export class VendasController {
   @Post()
   create(@Request() req: any, @Body() venda: Venda) {
     const user = req.user.sub;
+    const companyId = user?.companyId || req.user?.companyId;
     venda.user_id = user.id;
-    return this.vendasservice.create(venda);
+    return this.vendasservice.create(venda, companyId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post("dashboard")
   dashboard(@Request() req: any, res: any): Promise<any> {
-    return this.vendasservice.dashboard();
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.vendasservice.dashboard(companyId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  getAll(@Request() req: any, @Query() rangeDates: string) {
-    return this.vendasservice.getAll(rangeDates);
+  getAll(@Request() req: any, @Query() rangeDates: any) {
+    const companyId = req.user?.sub?.companyId || req.user?.companyId;
+    return this.vendasservice.getAll(rangeDates, companyId);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get()
-  getOne(@Request() req: any, @Query() affiliateId: number) {
-    return this.vendasservice.getOne(affiliateId);
+  @Get(":id")
+  getOne(@Request() req: any, @Param("id") vendaId: number) {
+    return this.vendasservice.getOne(vendaId);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Delete()
-  delete(@Request() req: any, @Query() affiliateId: number) {
-    return this.vendasservice.delete(affiliateId);
+  @Delete(":id")
+  delete(@Request() req: any, @Param("id") vendaId: number) {
+    return this.vendasservice.delete(vendaId);
   }
 
   /**
@@ -155,7 +158,8 @@ export class VendasController {
   @Get("pending-exclusions")
   async getPendingExclusions(@Request() req: any) {
     try {
-      return await this.vendasservice.getPendingExclusionRequests();
+      const companyId = req.user?.sub?.companyId || req.user?.companyId;
+      return await this.vendasservice.getPendingExclusionRequests(companyId);
     } catch (error: any) {
       throw new HttpException(
         error.message || "Falha ao obter solicitações pendentes",
@@ -165,8 +169,8 @@ export class VendasController {
   }
 
   /**
-   * Lista todas as solicitações de exclusão pendentes
-   * GET /vendas/pending-exclusions
+   * Obtém os produtos/serviços mais vendidos
+   * POST /vendas/top-selling-products
    */
   @UseGuards(JwtAuthGuard)
   @Post("top-selling-products")
@@ -175,9 +179,11 @@ export class VendasController {
     @Body() data: { startDate: Date; endDate: Date }
   ) {
     try {
+      const companyId = req.user?.sub?.companyId || req.user?.companyId;
       return await this.vendasservice.getTopSellingItems(
         data.startDate,
-        data.endDate
+        data.endDate,
+        companyId
       );
     } catch (error: any) {
       throw new HttpException(
