@@ -70,9 +70,9 @@ export class CaixaService {
 
       // Verifica se já existe um caixa aberto para essa empresa
       const openCaixa = await this.uow.caixaRepository.findOne({
-        where: { 
-          company: { id: companyId }, 
-          fechado: false 
+        where: {
+          company: { id: companyId },
+          fechado: false,
         },
       });
 
