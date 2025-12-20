@@ -12,7 +12,7 @@ import {
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
-import { CompaniesService, CreateCompanyDto } from "./companies.service";
+import { CompaniesService, CreateCompanyDto, CreateUserForCompanyDto } from "./companies.service";
 import { JwtAuthGuard } from "@/domain/auth/jwt-auth.guard";
 import { SuperAdminGuard } from "@/domain/auth/guard/super-admin.guard";
 import { CompanySetup } from "@/domain/entities/company-setup.entity";
@@ -172,6 +172,44 @@ export class CompaniesController {
     } catch (error: any) {
       throw new HttpException(
         error.message || "Erro ao excluir empresa",
+        HttpStatus.BAD_REQUEST
+      );
+    }
+  }
+
+  /**
+   * Criar usuário para uma empresa
+   * POST /companies/:id/create-user
+   * PROTEGIDO: Apenas Super Admin (rounantj@hotmail.com)
+   */
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  @Post(":id/create-user")
+  async createUserForCompany(
+    @Request() req: any,
+    @Param("id") companyId: number,
+    @Body() userData: CreateUserForCompanyDto
+  ) {
+    try {
+      const createdByUserId = req.user?.sub?.id || req.user?.id;
+      const user = await this.companieService.createUserForCompany(
+        +companyId,
+        userData,
+        createdByUserId
+      );
+      return { 
+        success: true, 
+        message: "Usuário criado com sucesso",
+        data: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          companyId: user.companyId,
+        }
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || "Erro ao criar usuário",
         HttpStatus.BAD_REQUEST
       );
     }

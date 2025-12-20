@@ -4,12 +4,20 @@ import { User } from "@/domain/entities/user.entity";
 import { UnitOfWorkService } from "@/infra/unit-of-work";
 import { Injectable } from "@nestjs/common";
 import { IsNull } from "typeorm";
+import * as bcrypt from "bcryptjs";
 
 export interface CreateCompanyDto {
   name: string;
   address?: string;
   phone?: string;
   cnpj?: string;
+}
+
+export interface CreateUserForCompanyDto {
+  email: string;
+  password: string;
+  name: string;
+  role?: string; // admin, atendente, visitante
 }
 
 @Injectable()
@@ -194,5 +202,58 @@ export class CompaniesService {
         name: "ASC",
       },
     });
+  }
+
+  /**
+   * Cria um novo usuário para uma empresa (Super Admin only)
+   */
+  async createUserForCompany(
+    companyId: number,
+    userData: CreateUserForCompanyDto,
+    createdByUserId?: number
+  ): Promise<User> {
+    // Verificar se a empresa existe
+    const company = await this.getOne(companyId);
+    if (!company) {
+      throw new Error("Empresa não encontrada");
+    }
+
+    // Verificar se já existe um usuário com este email
+    const existingUser = await this.uow.userRepository.findOne({
+      where: { email: userData.email },
+    });
+
+    if (existingUser) {
+      throw new Error("Já existe um usuário com este email");
+    }
+
+    // Validar role
+    const allowedRoles = ["admin", "atendente", "visitante"];
+    const role = userData.role && allowedRoles.includes(userData.role) 
+      ? userData.role 
+      : "atendente";
+
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+    // Criar novo usuário
+    const user = new User();
+    user.email = userData.email;
+    user.username = userData.email;
+    user.name = userData.name;
+    user.password = hashedPassword;
+    user.role = role;
+    user.companyId = companyId;
+    user.is_active = true;
+    user.createdAt = new Date();
+    user.updatedAt = new Date();
+    user.last_login = new Date();
+
+    if (createdByUserId) {
+      user.createdByUser = createdByUserId.toString();
+      user.updatedByUser = createdByUserId.toString();
+    }
+
+    return await this.uow.userRepository.save(user);
   }
 }
