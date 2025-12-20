@@ -2,7 +2,7 @@ import { User } from "@/domain/entities/user.entity";
 import { UnitOfWorkService } from "@/infra/unit-of-work";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcryptjs";
 
 type CompanyID = number;
 type CompanyName = string;
