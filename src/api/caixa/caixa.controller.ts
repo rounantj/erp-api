@@ -58,7 +58,10 @@ export class CaixaController {
   @UseGuards(JwtAuthGuard)
   @Get("resumo")
   resumo(@Request() req: any, @Query() params: any) {
-    const caixaId = +params?.caixaId;
+    const caixaId = Number(params?.caixaId);
+    if (isNaN(caixaId) || caixaId <= 0) {
+      throw new Error("ID do caixa inválido para resumo");
+    }
     return this.caixaService.resumoVendasDoDia(caixaId);
   }
 
@@ -75,13 +78,21 @@ export class CaixaController {
   // Rota com parâmetro dinâmico por ÚLTIMO
   @UseGuards(JwtAuthGuard)
   @Get(":caixaId")
-  getOne(@Request() req: any, @Param("caixaId") caixaId: number) {
-    return this.caixaService.getOne(+caixaId);
+  getOne(@Request() req: any, @Param("caixaId") caixaId: string) {
+    const id = Number(caixaId);
+    if (isNaN(id) || id <= 0) {
+      throw new Error("ID do caixa inválido");
+    }
+    return this.caixaService.getOne(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(":caixaId")
-  delete(@Request() req: any, @Param("caixaId") caixaId: number) {
-    return this.caixaService.delete(+caixaId);
+  delete(@Request() req: any, @Param("caixaId") caixaId: string) {
+    const id = Number(caixaId);
+    if (isNaN(id) || id <= 0) {
+      throw new Error("ID do caixa inválido para exclusão");
+    }
+    return this.caixaService.delete(id);
   }
 }
