@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import { CompaniesService, CreateCompanyDto } from "./companies.service";
 import { JwtAuthGuard } from "@/domain/auth/jwt-auth.guard";
+import { SuperAdminGuard } from "@/domain/auth/guard/super-admin.guard";
 import { CompanySetup } from "@/domain/entities/company-setup.entity";
 
 @Controller("companies")
@@ -23,8 +24,9 @@ export class CompaniesController {
   /**
    * Criar nova empresa
    * POST /companies
+   * PROTEGIDO: Apenas Super Admin (rounantj@hotmail.com)
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Post()
   async create(@Request() req: any, @Body() companyData: CreateCompanyDto) {
     try {
@@ -41,8 +43,9 @@ export class CompaniesController {
   /**
    * Atualizar empresa existente
    * PUT /companies/:id
+   * PROTEGIDO: Apenas Super Admin (rounantj@hotmail.com)
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Put(":id")
   async update(
     @Request() req: any,
@@ -63,8 +66,9 @@ export class CompaniesController {
   /**
    * Listar todas as empresas
    * GET /companies
+   * PROTEGIDO: Apenas Super Admin (rounantj@hotmail.com)
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Get()
   async getAll(@Request() req: any) {
     return await this.companieService.getAll();
@@ -73,6 +77,7 @@ export class CompaniesController {
   /**
    * Listar empresas do usuário atual
    * GET /companies/my-companies
+   * Este endpoint é liberado para qualquer usuário autenticado (para ver sua própria empresa)
    */
   @UseGuards(JwtAuthGuard)
   @Get("my-companies")
@@ -82,22 +87,9 @@ export class CompaniesController {
   }
 
   /**
-   * Buscar empresa pelo ID
-   * GET /companies/:id
-   */
-  @UseGuards(JwtAuthGuard)
-  @Get(":id")
-  async getOne(@Request() req: any, @Param("id") companyId: number) {
-    const company = await this.companieService.getOne(+companyId);
-    if (!company) {
-      throw new HttpException("Empresa não encontrada", HttpStatus.NOT_FOUND);
-    }
-    return company;
-  }
-
-  /**
    * Buscar configurações da empresa
    * GET /companies/setup?companyId=X
+   * Este endpoint é liberado para qualquer usuário autenticado (para configurar sua própria empresa)
    */
   @UseGuards(JwtAuthGuard)
   @Get("setup/get")
@@ -109,6 +101,7 @@ export class CompaniesController {
   /**
    * Atualizar configurações da empresa
    * POST /companies/setup
+   * Este endpoint é liberado para qualquer usuário admin (para configurar sua própria empresa)
    */
   @UseGuards(JwtAuthGuard)
   @Post("setup")
@@ -119,10 +112,26 @@ export class CompaniesController {
   }
 
   /**
+   * Buscar empresa pelo ID
+   * GET /companies/:id
+   * PROTEGIDO: Apenas Super Admin (rounantj@hotmail.com)
+   */
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  @Get(":id")
+  async getOne(@Request() req: any, @Param("id") companyId: number) {
+    const company = await this.companieService.getOne(+companyId);
+    if (!company) {
+      throw new HttpException("Empresa não encontrada", HttpStatus.NOT_FOUND);
+    }
+    return company;
+  }
+
+  /**
    * Listar usuários de uma empresa
    * GET /companies/:id/users
+   * PROTEGIDO: Apenas Super Admin (rounantj@hotmail.com)
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Get(":id/users")
   async getCompanyUsers(@Request() req: any, @Param("id") companyId: number) {
     return await this.companieService.getUsersByCompany(+companyId);
@@ -131,8 +140,9 @@ export class CompaniesController {
   /**
    * Associar usuário a uma empresa
    * POST /companies/:id/users/:userId
+   * PROTEGIDO: Apenas Super Admin (rounantj@hotmail.com)
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Post(":id/users/:userId")
   async addUserToCompany(
     @Param("id") companyId: number,
@@ -151,8 +161,9 @@ export class CompaniesController {
   /**
    * Excluir empresa (soft delete)
    * DELETE /companies/:id
+   * PROTEGIDO: Apenas Super Admin (rounantj@hotmail.com)
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Delete(":id")
   async delete(@Request() req: any, @Param("id") companyId: number) {
     try {

@@ -34,7 +34,7 @@ export class CaixaController {
     const { valorAbertura, companyId: bodyCompanyId } = body;
     const companyId =
       req.user?.sub?.companyId || req.user?.companyId || bodyCompanyId;
-    
+
     // Sempre usar o ID do usuário logado do JWT (não do body)
     const userId = req.user?.sub?.id || req.user?.id;
 
@@ -42,22 +42,15 @@ export class CaixaController {
       throw new Error("CompanyId não encontrado no token ou no body");
     }
 
-    return this.caixaService.open(
-      companyId,
-      userId,
-      valorAbertura || 0
-    );
+    return this.caixaService.open(companyId, userId, valorAbertura || 0);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post("close")
-  close(
-    @Request() req: any,
-    @Body() { caixaId, saldoFinal, diferenca }: any
-  ) {
+  close(@Request() req: any, @Body() { caixaId, saldoFinal, diferenca }: any) {
     // Sempre usar o ID do usuário logado do JWT
     const userId = req.user?.sub?.id || req.user?.id;
-    
+
     if (!caixaId) {
       throw new Error("caixaId é obrigatório");
     }
