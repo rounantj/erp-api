@@ -57,13 +57,15 @@ export class UserAuthUsecase {
     if (!user) {
       throw new Error("Password or email invalid");
     }
-    
+
     // Debug log
     console.log(`[LOGIN DEBUG] Email: ${email}`);
     console.log(`[LOGIN DEBUG] Password length: ${password?.length}`);
     console.log(`[LOGIN DEBUG] Stored hash length: ${user.password?.length}`);
-    console.log(`[LOGIN DEBUG] Hash starts with: ${user.password?.substring(0, 10)}`);
-    
+    console.log(
+      `[LOGIN DEBUG] Hash starts with: ${user.password?.substring(0, 10)}`
+    );
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     console.log(`[LOGIN DEBUG] Password valid: ${isPasswordValid}`);
 
