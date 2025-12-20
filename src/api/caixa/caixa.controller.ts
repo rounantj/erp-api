@@ -30,9 +30,15 @@ export class CaixaController {
 
   @UseGuards(JwtAuthGuard)
   @Post("open")
-  open(@Request() req: any, @Body() { userId, valorAbertura }: any) {
-    const companyId = req.user?.sub?.companyId || req.user?.companyId;
-    return this.caixaService.open(companyId, userId, valorAbertura);
+  open(@Request() req: any, @Body() body: any) {
+    const { userId, valorAbertura, companyId: bodyCompanyId } = body;
+    const companyId = req.user?.sub?.companyId || req.user?.companyId || bodyCompanyId;
+    
+    if (!companyId) {
+      throw new Error("CompanyId não encontrado no token ou no body");
+    }
+    
+    return this.caixaService.open(companyId, userId || req.user?.id, valorAbertura || 0);
   }
 
   @UseGuards(JwtAuthGuard)

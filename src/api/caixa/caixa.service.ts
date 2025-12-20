@@ -58,41 +58,46 @@ export class CaixaService {
       throw new Error("companyId é obrigatório");
     }
 
-    // Buscar a empresa no banco de dados
-    const company = await this.uow.companyRepository.findOne({
-      where: { id: companyId },
-    });
+    try {
+      // Buscar a empresa no banco de dados
+      const company = await this.uow.companyRepository.findOne({
+        where: { id: companyId },
+      });
 
-    if (!company) {
-      throw new Error("Empresa não encontrada");
+      if (!company) {
+        throw new Error(`Empresa com ID ${companyId} não encontrada`);
+      }
+
+      // Verifica se já existe um caixa aberto para essa empresa
+      const openCaixa = await this.uow.caixaRepository.findOne({
+        where: { 
+          company: { id: companyId }, 
+          fechado: false 
+        },
+      });
+
+      if (openCaixa) {
+        return openCaixa;
+      }
+
+      // Criar um novo caixa
+      const caixa = new Caixa();
+      caixa.company = company;
+      caixa.aberturaData = new Date();
+      caixa.saldoInicial = valorAbertura || 0;
+      caixa.saldoFinal = 0;
+      caixa.fechado = false;
+      caixa.fechamentoData = null;
+      caixa.abertoPor = userId || null;
+      caixa.fechadoPor = null;
+
+      // Salvar no banco
+      const newCaixa = await this.uow.caixaRepository.save(caixa);
+      return newCaixa;
+    } catch (error: any) {
+      console.error("Erro ao abrir caixa:", error);
+      throw new Error(`Erro ao abrir caixa: ${error?.message || error}`);
     }
-
-    // Verifica se já existe um caixa aberto para essa empresa
-    const openCaixa = await this.uow.caixaRepository.findOne({
-      where: { company, fechado: false },
-    });
-
-    if (openCaixa) {
-      return openCaixa;
-    }
-
-    // Criar um novo caixa
-    const caixa = new Caixa();
-    caixa.company = company; // Passando a empresa como objeto
-    caixa.aberturaData = new Date();
-    caixa.saldoInicial = valorAbertura;
-    caixa.saldoFinal = 0;
-    caixa.fechado = false;
-    caixa.fechamentoData = null;
-    caixa.abertoPor = userId || null;
-    caixa.fechadoPor = null;
-    caixa.vendas = [];
-    caixa.despesas = [];
-    caixa.movimentacoes = [];
-
-    // Salvar no banco
-    const newCaixa = await this.uow.caixaRepository.save(caixa);
-    return newCaixa;
   }
 
   async close(
