@@ -141,9 +141,12 @@ export class ProdutoController {
   ) {
     try {
       const companyId = req.user?.sub?.companyId || req.user?.companyId;
-      
+
       if (!companyId) {
-        throw new HttpException("Company ID é obrigatório", HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          "Company ID é obrigatório",
+          HttpStatus.BAD_REQUEST
+        );
       }
 
       // Verificar se o produto existe
@@ -156,7 +159,10 @@ export class ProdutoController {
 
       if (file) {
         // Upload via multipart/form-data
-        const { folder, filename } = this.storageService.getProductImagePath(companyId, productId);
+        const { folder, filename } = this.storageService.getProductImagePath(
+          companyId,
+          productId
+        );
         imageUrl = await this.storageService.uploadFile(
           file.buffer,
           filename,
@@ -165,8 +171,15 @@ export class ProdutoController {
         );
       } else if (body.base64) {
         // Upload via base64
-        const { folder, filename } = this.storageService.getProductImagePath(companyId, productId);
-        imageUrl = await this.storageService.uploadBase64(body.base64, filename, folder);
+        const { folder, filename } = this.storageService.getProductImagePath(
+          companyId,
+          productId
+        );
+        imageUrl = await this.storageService.uploadBase64(
+          body.base64,
+          filename,
+          folder
+        );
       } else {
         throw new HttpException(
           "Nenhum arquivo ou base64 fornecido",

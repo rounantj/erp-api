@@ -1,77 +1,77 @@
 import { User } from "./user.entity";
 import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    OneToMany,
-    CreateDateColumn,
-    DeleteDateColumn,
-    JoinColumn,
-    ManyToOne,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  CreateDateColumn,
+  DeleteDateColumn,
+  JoinColumn,
+  ManyToOne,
 } from "typeorm";
 
 @Entity("companie-setup")
 export class CompanySetup {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column()
-    companyId: number;
+  @Column()
+  companyId: number;
 
-    @Column()
-    companyName: string;
+  @Column()
+  companyName: string;
 
-    @Column({ nullable: true })
-    companyAddress?: string;
+  @Column({ nullable: true })
+  companyAddress?: string;
 
-    @Column({ nullable: true })
-    companyCNPJ?: string;
+  @Column({ nullable: true })
+  companyCNPJ?: string;
 
-    @Column({ nullable: true })
-    companyNCM?: boolean;
+  @Column({ nullable: true })
+  companyNCM?: boolean;
 
-    @Column({ name: "company_integration", type: 'jsonb', nullable: true })
-    companyIntegration?: any;
+  @Column({ name: "company_integration", type: "jsonb", nullable: true })
+  companyIntegration?: any;
 
-    // Novos campos para branding e configuração
-    @Column({ name: "logo_url", type: 'text', nullable: true })
-    logoUrl?: string;
+  // Novos campos para branding e configuração
+  @Column({ name: "logo_url", type: "text", nullable: true })
+  logoUrl?: string;
 
-    @Column({ name: "sidebar_color", nullable: true, default: '#667eea' })
-    sidebarColor?: string;
+  @Column({ name: "sidebar_color", nullable: true, default: "#667eea" })
+  sidebarColor?: string;
 
-    @Column({ name: "company_phone", nullable: true })
-    companyPhone?: string;
+  @Column({ name: "company_phone", nullable: true })
+  companyPhone?: string;
 
-    @Column({ name: "company_email", nullable: true })
-    companyEmail?: string;
+  @Column({ name: "company_email", nullable: true })
+  companyEmail?: string;
 
-    @Column({ name: "receipt_footer", type: 'text', nullable: true })
-    receiptFooter?: string;
+  @Column({ name: "receipt_footer", type: "text", nullable: true })
+  receiptFooter?: string;
 
-    @Column({ name: "onboarding_completed", default: false })
-    onboardingCompleted: boolean;
+  @Column({ name: "onboarding_completed", default: false })
+  onboardingCompleted: boolean;
 
-    @CreateDateColumn({ name: "created_at" })
-    createdAt: Date;
+  @CreateDateColumn({ name: "created_at" })
+  createdAt: Date;
 
-    @Column({ name: "updated_at" })
-    updatedAt: Date;
+  @Column({ name: "updated_at" })
+  updatedAt: Date;
 
-    @Column({ name: "updated_by_user", nullable: true })
-    updatedByUser: string;
+  @Column({ name: "updated_by_user", nullable: true })
+  updatedByUser: string;
 
-    @Column({ name: "created_by_user", nullable: true })
-    createdByUser: string;
+  @Column({ name: "created_by_user", nullable: true })
+  createdByUser: string;
 
-    @DeleteDateColumn({ name: "deleted_at", nullable: true })
-    deletedAt: Date;
+  @DeleteDateColumn({ name: "deleted_at", nullable: true })
+  deletedAt: Date;
 
-    @ManyToOne(() => User, { nullable: true })
-    @JoinColumn({ name: "updated_by_user", referencedColumnName: "id" })
-    updatedBy: User;
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "updated_by_user", referencedColumnName: "id" })
+  updatedBy: User;
 
-    @ManyToOne(() => User, { nullable: true })
-    @JoinColumn({ name: "created_by_user", referencedColumnName: "id" })
-    createdBy: User;
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "created_by_user", referencedColumnName: "id" })
+  createdBy: User;
 }

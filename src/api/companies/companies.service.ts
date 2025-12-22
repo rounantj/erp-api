@@ -169,9 +169,12 @@ export class CompaniesService {
   /**
    * Atualiza a URL da logo da empresa
    */
-  async updateLogoUrl(companyId: number, logoUrl: string): Promise<CompanySetup> {
+  async updateLogoUrl(
+    companyId: number,
+    logoUrl: string
+  ): Promise<CompanySetup> {
     const setups = await this.getSetup(companyId);
-    
+
     if (setups.length === 0) {
       // Criar setup se não existir
       const newSetup = new CompanySetup();
@@ -193,7 +196,7 @@ export class CompaniesService {
    */
   async completeOnboarding(companyId: number): Promise<CompanySetup> {
     const setups = await this.getSetup(companyId);
-    
+
     if (setups.length === 0) {
       throw new Error("Setup da empresa não encontrado");
     }

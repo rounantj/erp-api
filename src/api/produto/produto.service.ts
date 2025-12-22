@@ -90,19 +90,25 @@ export class ProdutoService {
     const [data, total] = await queryBuilder.getManyAndCount();
 
     // Buscar imagens da tabela product_images para produtos sem imageUrl
-    const produtosSemImagem = data.filter(p => !p.imageUrl && p.ean);
+    const produtosSemImagem = data.filter((p) => !p.imageUrl && p.ean);
     if (produtosSemImagem.length > 0) {
-      const eans = produtosSemImagem.map(p => p.ean);
+      const eans = produtosSemImagem.map((p) => p.ean);
       const imagens = await this.uow.productImagesRepository.find({
-        where: eans.map(ean => ({ ean })),
+        where: eans.map((ean) => ({ ean })),
       });
 
       // Mapear imagens por EAN
-      const imagensPorEan = new Map(imagens.map(img => [img.ean, img.base_64]));
+      const imagensPorEan = new Map(
+        imagens.map((img) => [img.ean, img.base_64])
+      );
 
       // Atribuir imagens aos produtos
-      data.forEach(produto => {
-        if (!produto.imageUrl && produto.ean && imagensPorEan.has(produto.ean)) {
+      data.forEach((produto) => {
+        if (
+          !produto.imageUrl &&
+          produto.ean &&
+          imagensPorEan.has(produto.ean)
+        ) {
           produto.imageUrl = imagensPorEan.get(produto.ean);
         }
       });
@@ -134,19 +140,25 @@ export class ProdutoService {
     });
 
     // Buscar imagens da tabela product_images para produtos sem imageUrl
-    const produtosSemImagem = produtos.filter(p => !p.imageUrl && p.ean);
+    const produtosSemImagem = produtos.filter((p) => !p.imageUrl && p.ean);
     if (produtosSemImagem.length > 0) {
-      const eans = produtosSemImagem.map(p => p.ean);
+      const eans = produtosSemImagem.map((p) => p.ean);
       const imagens = await this.uow.productImagesRepository.find({
-        where: eans.map(ean => ({ ean })),
+        where: eans.map((ean) => ({ ean })),
       });
 
       // Mapear imagens por EAN
-      const imagensPorEan = new Map(imagens.map(img => [img.ean, img.base_64]));
+      const imagensPorEan = new Map(
+        imagens.map((img) => [img.ean, img.base_64])
+      );
 
       // Atribuir imagens aos produtos
-      produtos.forEach(produto => {
-        if (!produto.imageUrl && produto.ean && imagensPorEan.has(produto.ean)) {
+      produtos.forEach((produto) => {
+        if (
+          !produto.imageUrl &&
+          produto.ean &&
+          imagensPorEan.has(produto.ean)
+        ) {
           produto.imageUrl = imagensPorEan.get(produto.ean);
         }
       });
@@ -281,10 +293,10 @@ export class ProdutoService {
     if (!produto) {
       throw new Error("Produto não encontrado");
     }
-    
+
     produto.imageUrl = imageUrl;
     produto.updatedAt = new Date();
-    
+
     return await this.uow.produtoRepository.save(produto);
   }
 
