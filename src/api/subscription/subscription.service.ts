@@ -118,10 +118,32 @@ export class SubscriptionService {
       where: { companyId },
     });
 
+    console.log("[SubscriptionService] CompanySetup encontrado:", {
+      companyId,
+      companyName: companySetup?.companyName,
+      companyEmail: companySetup?.companyEmail,
+      companyCNPJ: companySetup?.companyCNPJ,
+      companyPhone: companySetup?.companyPhone,
+    });
+
     if (!companySetup?.companyCNPJ) {
       throw new BadRequestException(
         "Empresa não possui CPF/CNPJ cadastrado. Por favor, atualize o cadastro nas Configurações."
       );
+    }
+
+    // Buscar email do usuário admin da empresa como fallback
+    let fallbackEmail = `empresa${companyId}@sistema.local`;
+    if (!companySetup.companyEmail) {
+      const company = await this.uow.companyRepository.findOne({
+        where: { id: companyId },
+        relations: ["users"],
+      });
+      const adminUser = company?.users?.find((u: any) => u.role === "admin") || company?.users?.[0];
+      if (adminUser?.email) {
+        fallbackEmail = adminUser.email;
+        console.log(`[SubscriptionService] Usando email do admin como fallback: ${fallbackEmail}`);
+      }
     }
 
     const cleanCpfCnpj = this.asaasService.cleanCpfCnpj(companySetup.companyCNPJ);
@@ -142,13 +164,13 @@ export class SubscriptionService {
     // Criar cliente no Asaas com dados do CompanySetup
     const customerData = {
       name: companySetup.companyName || `Empresa ${companyId}`,
-      email: companySetup.companyEmail || `empresa${companyId}@sistema.local`,
+      email: companySetup.companyEmail || fallbackEmail,
       cpfCnpj: cleanCpfCnpj,
       phone: companySetup.companyPhone || undefined,
       externalReference: `company_${companyId}`,
     };
 
-    console.log("[SubscriptionService] Criando cliente no Asaas com dados do CompanySetup:", {
+    console.log("[SubscriptionService] Criando cliente no Asaas com dados:", {
       name: customerData.name,
       email: customerData.email,
       cpfCnpj: customerData.cpfCnpj,
