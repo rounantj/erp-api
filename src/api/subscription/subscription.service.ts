@@ -75,6 +75,65 @@ export class SubscriptionService {
     });
   }
 
+  async getSubscriptionById(id: number): Promise<CompanySubscription | null> {
+    return this.uow.companySubscriptionRepository.findOne({
+      where: { id, deletedAt: IsNull() },
+      relations: ["plan", "company"],
+    });
+  }
+
+  /**
+   * Busca ou cria cliente no Asaas usando dados do CompanySetup
+   * Centraliza a lógica para garantir consistência em todos os pagamentos
+   */
+  async getOrCreateAsaasCustomer(companyId: number): Promise<string> {
+    // Buscar CompanySetup
+    const companySetup = await this.uow.companySetupRepository.findOne({
+      where: { companyId },
+    });
+
+    if (!companySetup?.companyCNPJ) {
+      throw new BadRequestException(
+        "Empresa não possui CPF/CNPJ cadastrado. Por favor, atualize o cadastro nas Configurações."
+      );
+    }
+
+    const cleanCpfCnpj = this.asaasService.cleanCpfCnpj(companySetup.companyCNPJ);
+
+    // Verificar se já existe cliente no Asaas
+    let existingCustomer = null;
+    try {
+      existingCustomer = await this.asaasService.findCustomerByCpfCnpj(cleanCpfCnpj);
+    } catch (e) {
+      // Ignora erro de busca
+    }
+
+    if (existingCustomer) {
+      console.log(`[SubscriptionService] Cliente encontrado no Asaas: ${existingCustomer.id}`);
+      return existingCustomer.id;
+    }
+
+    // Criar cliente no Asaas com dados do CompanySetup
+    const customerData = {
+      name: companySetup.companyName || `Empresa ${companyId}`,
+      email: companySetup.companyEmail || `empresa${companyId}@sistema.local`,
+      cpfCnpj: cleanCpfCnpj,
+      phone: companySetup.companyPhone || undefined,
+      externalReference: `company_${companyId}`,
+    };
+
+    console.log("[SubscriptionService] Criando cliente no Asaas com dados do CompanySetup:", {
+      name: customerData.name,
+      email: customerData.email,
+      cpfCnpj: customerData.cpfCnpj,
+    });
+
+    const customer = await this.asaasService.createCustomer(customerData);
+    console.log(`[SubscriptionService] Cliente criado no Asaas: ${customer.id}`);
+    
+    return customer.id;
+  }
+
   async createTrialSubscription(companyId: number): Promise<CompanySubscription> {
     // Verificar se já existe subscription
     const existingSubscription = await this.getSubscriptionByCompanyId(companyId);
@@ -115,27 +174,10 @@ export class SubscriptionService {
     // Buscar ou criar subscription existente
     let subscription = await this.getSubscriptionByCompanyId(data.companyId);
 
-    // Criar ou buscar cliente no Asaas
+    // Buscar ou criar cliente no Asaas usando dados do CompanySetup
     let asaasCustomerId = subscription?.asaasCustomerId;
-
     if (!asaasCustomerId) {
-      // Verificar se já existe cliente no Asaas
-      const cleanCpfCnpj = this.asaasService.cleanCpfCnpj(data.customerCpfCnpj);
-      let existingCustomer = await this.asaasService.findCustomerByCpfCnpj(cleanCpfCnpj);
-
-      if (!existingCustomer) {
-        // Criar cliente no Asaas
-        const customer = await this.asaasService.createCustomer({
-          name: data.customerName,
-          email: data.customerEmail,
-          cpfCnpj: cleanCpfCnpj,
-          phone: data.customerPhone,
-          externalReference: `company_${data.companyId}`,
-        });
-        asaasCustomerId = customer.id;
-      } else {
-        asaasCustomerId = existingCustomer.id;
-      }
+      asaasCustomerId = await this.getOrCreateAsaasCustomer(data.companyId);
     }
 
     // Criar subscription no Asaas
@@ -195,25 +237,10 @@ export class SubscriptionService {
     // Buscar ou criar subscription existente
     let subscription = await this.getSubscriptionByCompanyId(data.companyId);
 
-    // Criar ou buscar cliente no Asaas
+    // Buscar ou criar cliente no Asaas usando dados do CompanySetup
     let asaasCustomerId = subscription?.asaasCustomerId;
-
     if (!asaasCustomerId) {
-      const cleanCpfCnpj = this.asaasService.cleanCpfCnpj(data.customerCpfCnpj);
-      let existingCustomer = await this.asaasService.findCustomerByCpfCnpj(cleanCpfCnpj);
-
-      if (!existingCustomer) {
-        const customer = await this.asaasService.createCustomer({
-          name: data.customerName,
-          email: data.customerEmail,
-          cpfCnpj: cleanCpfCnpj,
-          phone: data.customerPhone,
-          externalReference: `company_${data.companyId}`,
-        });
-        asaasCustomerId = customer.id;
-      } else {
-        asaasCustomerId = existingCustomer.id;
-      }
+      asaasCustomerId = await this.getOrCreateAsaasCustomer(data.companyId);
     }
 
     // Mapear método de pagamento
@@ -277,7 +304,10 @@ export class SubscriptionService {
     return result;
   }
 
-  async changePlan(subscriptionId: number, newPlanId: number): Promise<CompanySubscription> {
+  /**
+   * Altera plano diretamente (apenas para ADMIN na tela de Empresas)
+   */
+  async changePlanAdmin(subscriptionId: number, newPlanId: number): Promise<CompanySubscription> {
     const subscription = await this.uow.companySubscriptionRepository.findOne({
       where: { id: subscriptionId, deletedAt: IsNull() },
     });
@@ -294,21 +324,112 @@ export class SubscriptionService {
 
     // Se tem subscription no Asaas, atualizar lá
     if (subscription.asaasSubscriptionId && newPlan.price > 0) {
-      await this.asaasService.updateSubscription(subscription.asaasSubscriptionId, {
-        value: Number(newPlan.price),
-        description: `Plano ${newPlan.displayName} - ERP Reboot`,
-      });
+      try {
+        await this.asaasService.updateSubscription(subscription.asaasSubscriptionId, {
+          value: Number(newPlan.price),
+          description: `Plano ${newPlan.displayName} - ERP Reboot`,
+        });
+      } catch (error) {
+        console.error("[SubscriptionService] Erro ao atualizar subscription no Asaas:", error);
+      }
     }
 
     subscription.planId = newPlan.id;
     subscription.updatedAt = new Date();
 
+    // Se o plano nunca expira (vitalício), sempre ativo
+    if (newPlan.neverExpires) {
+      subscription.status = "active";
+    }
     // Se estava em trial e trocou para plano pago, atualizar status
-    if (subscription.status === "trial" && newPlan.price > 0) {
+    else if (subscription.status === "trial" && newPlan.price > 0) {
       subscription.status = "active";
     }
 
     return this.uow.companySubscriptionRepository.save(subscription);
+  }
+
+  /**
+   * Gera link de pagamento para upgrade de plano (usuário comum)
+   * NÃO altera o plano - isso será feito via webhook quando o pagamento for confirmado
+   */
+  async requestPlanUpgrade(
+    companyId: number,
+    newPlanId: number,
+    billingPeriod: string = "monthly",
+    totalAmount?: number
+  ): Promise<{
+    paymentUrl: string;
+    invoiceUrl: string;
+    pendingPlanId: number;
+  }> {
+    let subscription = await this.getSubscriptionByCompanyId(companyId);
+
+    if (!subscription) {
+      throw new NotFoundException("Subscription não encontrada para esta empresa");
+    }
+
+    const newPlan = await this.getPlanById(newPlanId);
+
+    if (newPlan.name === "empresarial") {
+      throw new BadRequestException("Plano empresarial requer negociação. Entre em contato: " + newPlan.contactPhone);
+    }
+
+    if (newPlan.price === 0) {
+      throw new BadRequestException("Use a rota de trial para plano gratuito");
+    }
+
+    // Buscar ou criar cliente no Asaas usando dados do CompanySetup
+    if (!subscription.asaasCustomerId) {
+      const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId);
+      subscription.asaasCustomerId = asaasCustomerId;
+      subscription = await this.uow.companySubscriptionRepository.save(subscription);
+    }
+
+    // Calcular valor baseado no período
+    const months = billingPeriod === "yearly" ? 12 : billingPeriod === "quarterly" ? 3 : 1;
+    const amount = totalAmount || (Number(newPlan.price) * months);
+    
+    // Descrição com período
+    const periodLabel = billingPeriod === "yearly" ? "Anual" : billingPeriod === "quarterly" ? "Trimestral" : "Mensal";
+    const description = `Upgrade para Plano ${newPlan.displayName} (${periodLabel})`;
+
+    // Criar cobrança no Asaas - NÃO alterar o plano ainda
+    // A mudança será feita via webhook quando o pagamento for confirmado
+    const asaasPayment = await this.asaasService.createPayment({
+      customer: subscription.asaasCustomerId,
+      billingType: "UNDEFINED",
+      value: amount,
+      dueDate: this.asaasService.getNextDueDate(),
+      description,
+      // externalReference contém o planId pendente para processar no webhook
+      externalReference: `upgrade_company_${companyId}_plan_${newPlanId}_period_${billingPeriod}`,
+    });
+
+    console.log("[SubscriptionService] Cobrança de upgrade criada:", {
+      paymentId: asaasPayment.id,
+      invoiceUrl: asaasPayment.invoiceUrl,
+      pendingPlanId: newPlanId,
+    });
+
+    // Registrar no histórico como pendente
+    const history = new PaymentHistory();
+    history.companySubscriptionId = subscription.id;
+    history.asaasPaymentId = asaasPayment.id;
+    history.amount = amount;
+    history.status = "pending";
+    history.billingType = "UNDEFINED";
+    history.invoiceUrl = asaasPayment.invoiceUrl;
+    history.dueDate = new Date(asaasPayment.dueDate);
+    history.description = description;
+    history.createdAt = new Date();
+    await this.uow.paymentHistoryRepository.save(history);
+
+    return {
+      paymentUrl: asaasPayment.invoiceUrl,
+      invoiceUrl: asaasPayment.invoiceUrl,
+      pendingPlanId: newPlanId,
+    };
   }
 
   async cancelSubscription(subscriptionId: number): Promise<CompanySubscription> {
@@ -357,14 +478,17 @@ export class SubscriptionService {
     amount: number,
     description: string
   ): Promise<PaymentHistory> {
-    const subscription = await this.getSubscriptionByCompanyId(companyId);
+    let subscription = await this.getSubscriptionByCompanyId(companyId);
 
     if (!subscription) {
       throw new NotFoundException("Subscription não encontrada para esta empresa");
     }
 
+    // Buscar ou criar cliente no Asaas usando dados do CompanySetup
     if (!subscription.asaasCustomerId) {
-      throw new BadRequestException("Empresa não possui cliente cadastrado no Asaas");
+      const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId);
+      subscription.asaasCustomerId = asaasCustomerId;
+      subscription = await this.uow.companySubscriptionRepository.save(subscription);
     }
 
     // Criar cobrança avulsa no Asaas
@@ -411,71 +535,11 @@ export class SubscriptionService {
       throw new NotFoundException("Subscription não encontrada para esta empresa");
     }
 
-    // Se não tem cliente no Asaas, criar automaticamente
+    // Buscar ou criar cliente no Asaas usando dados do CompanySetup
     if (!subscription.asaasCustomerId) {
-      console.log("[SubscriptionService] Criando cliente no Asaas para empresa:", companyId);
-      
-      // Buscar dados da empresa com usuários
-      const company = await this.uow.companyRepository.findOne({
-        where: { id: companyId },
-        relations: ["users"],
-      });
-
-      if (!company) {
-        throw new NotFoundException("Empresa não encontrada");
-      }
-
-      // Buscar CompanySetup para obter CNPJ/CPF
-      const companySetup = await this.uow.companySetupRepository.findOne({
-        where: { companyId },
-      });
-
-      // Buscar primeiro usuário admin para pegar email
-      const adminUser = company.users?.find((u: any) => u.role === "admin") || company.users?.[0];
-
-      // Validar se tem CNPJ cadastrado
-      const cpfCnpj = companySetup?.companyCNPJ;
-      if (!cpfCnpj) {
-        throw new BadRequestException(
-          "Empresa não possui CPF/CNPJ cadastrado. Por favor, atualize o cadastro da empresa nas configurações."
-        );
-      }
-
-      // Criar cliente no Asaas usando dados da empresa e usuário
-      const customerData = {
-        name: companySetup?.companyName || company.name || `Empresa ${companyId}`,
-        email: companySetup?.companyEmail || adminUser?.email || `empresa${companyId}@sistema.local`,
-        cpfCnpj: this.asaasService.cleanCpfCnpj(cpfCnpj),
-        phone: companySetup?.companyPhone || company.phone || undefined,
-        externalReference: `company_${companyId}`,
-      };
-
-      console.log("[SubscriptionService] Dados do cliente:", customerData);
-
-      try {
-        // Verificar se já existe no Asaas pelo externalReference
-        let asaasCustomer = null;
-        
-        try {
-          asaasCustomer = await this.asaasService.findCustomerByCpfCnpj(customerData.cpfCnpj);
-        } catch (e) {
-          // Ignora erro de busca
-        }
-        
-        if (!asaasCustomer) {
-          asaasCustomer = await this.asaasService.createCustomer(customerData);
-        }
-
-        // Atualizar subscription com o ID do cliente Asaas
-        subscription.asaasCustomerId = asaasCustomer.id;
-        subscription.updatedAt = new Date();
-        subscription = await this.uow.companySubscriptionRepository.save(subscription);
-
-        console.log("[SubscriptionService] Cliente criado/encontrado no Asaas:", asaasCustomer.id);
-      } catch (error: any) {
-        console.error("[SubscriptionService] Erro ao criar cliente no Asaas:", error?.message || error);
-        throw new BadRequestException("Erro ao cadastrar cliente no Asaas: " + (error?.message || "Erro desconhecido"));
-      }
+      const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId);
+      subscription.asaasCustomerId = asaasCustomerId;
+      subscription = await this.uow.companySubscriptionRepository.save(subscription);
     }
 
     // Criar cobrança no Asaas com checkout completo

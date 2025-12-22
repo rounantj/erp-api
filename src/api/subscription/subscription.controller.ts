@@ -85,16 +85,53 @@ export class SubscriptionController {
     };
   }
 
-  @Put(":id/change-plan")
-  async changePlan(
+  /**
+   * Altera plano diretamente - APENAS ADMIN (tela de Empresas)
+   */
+  @Put(":id/change-plan-admin")
+  async changePlanAdmin(
     @Param("id", ParseIntPipe) id: number,
     @Body("newPlanId", ParseIntPipe) newPlanId: number
   ) {
-    const subscription = await this.subscriptionService.changePlan(id, newPlanId);
+    const subscription = await this.subscriptionService.changePlanAdmin(id, newPlanId);
     return {
       success: true,
       data: subscription,
       message: "Plano alterado com sucesso",
+    };
+  }
+
+  /**
+   * Solicita upgrade de plano - gera link de pagamento
+   * O plano só será alterado via webhook quando o pagamento for confirmado
+   * @param id - subscriptionId (ID da subscription)
+   */
+  @Put(":id/change-plan")
+  async requestPlanUpgrade(
+    @Param("id", ParseIntPipe) subscriptionId: number,
+    @Body() body: { newPlanId: number; billingPeriod?: string; totalAmount?: number }
+  ) {
+    // Buscar subscription pelo ID
+    const subscriptionRepo = await this.subscriptionService.getSubscriptionById(subscriptionId);
+    
+    if (!subscriptionRepo) {
+      return {
+        success: false,
+        message: "Subscription não encontrada",
+      };
+    }
+
+    const result = await this.subscriptionService.requestPlanUpgrade(
+      subscriptionRepo.companyId,
+      body.newPlanId,
+      body.billingPeriod || "monthly",
+      body.totalAmount
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: "Link de pagamento gerado. Após o pagamento, o plano será atualizado automaticamente.",
     };
   }
 

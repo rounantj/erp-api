@@ -226,12 +226,35 @@ export class WebhookController {
       return;
     }
 
+    // Verificar se é um pagamento de UPGRADE de plano
+    // Formato: upgrade_company_X_plan_Y_period_Z
+    if (payment.externalReference?.startsWith("upgrade_")) {
+      const upgradeMatch = payment.externalReference.match(/upgrade_company_(\d+)_plan_(\d+)_period_(\w+)/);
+      if (upgradeMatch) {
+        const newPlanId = parseInt(upgradeMatch[2], 10);
+        const period = upgradeMatch[3];
+        
+        console.log(`[Webhook] 🚀 UPGRADE de plano detectado! PlanId: ${newPlanId}, Período: ${period}`);
+        
+        // Alterar o plano da subscription (agora que o pagamento foi confirmado)
+        await this.subscriptionService.changePlanAdmin(subscription.id, newPlanId);
+        
+        console.log(`[Webhook] ✅ Plano alterado para ${newPlanId} após confirmação de pagamento`);
+      }
+    }
+
     // Atualizar status da subscription para ativo
     await this.subscriptionService.updateSubscriptionStatus(subscription.id, "active");
 
-    // Atualizar período da subscription
+    // Calcular período baseado no tipo de cobrança
     const periodEnd = new Date();
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    if (payment.externalReference?.includes("_period_yearly")) {
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    } else if (payment.externalReference?.includes("_period_quarterly")) {
+      periodEnd.setMonth(periodEnd.getMonth() + 3);
+    } else {
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+    }
     await this.subscriptionService.updateSubscriptionPeriod(subscription.id, new Date(), periodEnd);
 
     // Salvar pagamento no histórico
