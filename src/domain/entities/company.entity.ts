@@ -27,6 +27,9 @@ export class Company {
   @Column()
   phone: string;
 
+  @Column({ nullable: true })
+  email: string;
+
   @OneToMany(() => User, (item: any) => item.company)
   users: User[];
 

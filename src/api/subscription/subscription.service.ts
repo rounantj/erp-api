@@ -132,18 +132,31 @@ export class SubscriptionService {
       );
     }
 
-    // Buscar email do usuário admin da empresa como fallback
-    let fallbackEmail = `empresa${companyId}@sistema.local`;
-    if (!companySetup.companyEmail) {
-      const company = await this.uow.companyRepository.findOne({
-        where: { id: companyId },
-        relations: ["users"],
-      });
+    // Buscar Company e email do usuário admin como fallbacks
+    const company = await this.uow.companyRepository.findOne({
+      where: { id: companyId },
+      relations: ["users"],
+    });
+    
+    // Ordem de prioridade: companySetup.companyEmail > company.email > adminUser.email
+    let customerEmail = companySetup.companyEmail;
+    
+    if (!customerEmail && company?.email) {
+      customerEmail = company.email;
+      console.log(`[SubscriptionService] Usando email da Company: ${customerEmail}`);
+    }
+    
+    if (!customerEmail) {
       const adminUser = company?.users?.find((u: any) => u.role === "admin") || company?.users?.[0];
       if (adminUser?.email) {
-        fallbackEmail = adminUser.email;
-        console.log(`[SubscriptionService] Usando email do admin como fallback: ${fallbackEmail}`);
+        customerEmail = adminUser.email;
+        console.log(`[SubscriptionService] Usando email do admin como fallback: ${customerEmail}`);
       }
+    }
+    
+    if (!customerEmail) {
+      customerEmail = `empresa${companyId}@sistema.local`;
+      console.log(`[SubscriptionService] ATENÇÃO: Nenhum email encontrado, usando placeholder`);
     }
 
     const cleanCpfCnpj = this.asaasService.cleanCpfCnpj(companySetup.companyCNPJ);
@@ -163,10 +176,10 @@ export class SubscriptionService {
 
     // Criar cliente no Asaas com dados do CompanySetup
     const customerData = {
-      name: companySetup.companyName || `Empresa ${companyId}`,
-      email: companySetup.companyEmail || fallbackEmail,
+      name: companySetup.companyName || company?.name || `Empresa ${companyId}`,
+      email: customerEmail,
       cpfCnpj: cleanCpfCnpj,
-      phone: companySetup.companyPhone || undefined,
+      phone: companySetup.companyPhone || company?.phone || undefined,
       externalReference: `company_${companyId}`,
     };
 
