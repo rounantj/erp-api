@@ -246,15 +246,46 @@ export class WebhookController {
     // Atualizar status da subscription para ativo
     await this.subscriptionService.updateSubscriptionStatus(subscription.id, "active");
 
-    // Calcular período baseado no tipo de cobrança
+    // Calcular período baseado no tipo de cobrança ou valor pago
     const periodEnd = new Date();
+    let periodMonths = 1;
+
+    // 1. Verificar se tem período no externalReference
     if (payment.externalReference?.includes("_period_yearly")) {
-      periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+      periodMonths = 12;
     } else if (payment.externalReference?.includes("_period_quarterly")) {
+      periodMonths = 3;
+    } else {
+      // 2. Se não tiver, calcular baseado no valor pago vs preço do plano
+      const plan = await this.subscriptionService.getPlanById(subscription.planId);
+      if (plan && plan.price > 0 && payment.value > 0) {
+        const planPrice = Number(plan.price);
+        const paidValue = payment.value;
+        
+        // Calcular quantos meses foram pagos (com margem de desconto)
+        // Anual: 12 meses com 20% desconto = 9.6x o valor mensal
+        // Trimestral: 3 meses com 10% desconto = 2.7x o valor mensal
+        if (paidValue >= planPrice * 9) {
+          periodMonths = 12; // Pagou por 1 ano
+        } else if (paidValue >= planPrice * 2.5) {
+          periodMonths = 3; // Pagou por 3 meses
+        } else {
+          periodMonths = 1; // Pagou por 1 mês
+        }
+        
+        console.log(`[Webhook] Cálculo de período: planPrice=${planPrice}, paidValue=${paidValue}, periodMonths=${periodMonths}`);
+      }
+    }
+
+    if (periodMonths >= 12) {
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    } else if (periodMonths >= 3) {
       periodEnd.setMonth(periodEnd.getMonth() + 3);
     } else {
       periodEnd.setMonth(periodEnd.getMonth() + 1);
     }
+
+    console.log(`[Webhook] Período atualizado: ${periodMonths} meses, vencimento: ${periodEnd.toISOString()}`);
     await this.subscriptionService.updateSubscriptionPeriod(subscription.id, new Date(), periodEnd);
 
     // Salvar pagamento no histórico

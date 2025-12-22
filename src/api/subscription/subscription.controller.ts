@@ -177,6 +177,31 @@ export class SubscriptionController {
     };
   }
 
+  // ========== ADMIN: AJUSTAR PERÍODO ==========
+
+  /**
+   * Ajusta o período da subscription manualmente (ADMIN)
+   */
+  @Put(":id/adjust-period")
+  async adjustSubscriptionPeriod(
+    @Param("id", ParseIntPipe) subscriptionId: number,
+    @Body() body: { months: number }
+  ) {
+    const periodEnd = new Date();
+    periodEnd.setMonth(periodEnd.getMonth() + body.months);
+
+    await this.subscriptionService.updateSubscriptionPeriod(
+      subscriptionId,
+      new Date(),
+      periodEnd
+    );
+
+    return {
+      success: true,
+      message: `Período ajustado para ${body.months} meses. Novo vencimento: ${periodEnd.toLocaleDateString("pt-BR")}`,
+    };
+  }
+
   // ========== FEATURES ==========
 
   @Get("features/:companyId")
