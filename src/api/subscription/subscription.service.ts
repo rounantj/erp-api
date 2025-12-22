@@ -83,10 +83,36 @@ export class SubscriptionService {
   }
 
   /**
+   * Verifica se um customer ID existe no Asaas atual
+   * Útil para detectar mudança de ambiente (sandbox -> produção)
+   */
+  async verifyAsaasCustomer(customerId: string): Promise<boolean> {
+    if (!customerId) return false;
+    try {
+      await this.asaasService.getCustomer(customerId);
+      console.log(`[SubscriptionService] Customer ${customerId} verificado com sucesso`);
+      return true;
+    } catch (e) {
+      console.log(`[SubscriptionService] Customer ${customerId} não existe no Asaas atual`);
+      return false;
+    }
+  }
+
+  /**
    * Busca ou cria cliente no Asaas usando dados do CompanySetup
    * Centraliza a lógica para garantir consistência em todos os pagamentos
+   * IMPORTANTE: Sempre verifica se o customer salvo ainda existe (pode ter mudado de ambiente)
    */
-  async getOrCreateAsaasCustomer(companyId: number): Promise<string> {
+  async getOrCreateAsaasCustomer(companyId: number, existingCustomerId?: string): Promise<string> {
+    // Se já tem um customer ID, verificar se ainda existe no Asaas atual
+    if (existingCustomerId) {
+      const exists = await this.verifyAsaasCustomer(existingCustomerId);
+      if (exists) {
+        return existingCustomerId;
+      }
+      console.log(`[SubscriptionService] Customer ${existingCustomerId} não existe, criando novo...`);
+    }
+
     // Buscar CompanySetup
     const companySetup = await this.uow.companySetupRepository.findOne({
       where: { companyId },
@@ -100,7 +126,7 @@ export class SubscriptionService {
 
     const cleanCpfCnpj = this.asaasService.cleanCpfCnpj(companySetup.companyCNPJ);
 
-    // Verificar se já existe cliente no Asaas
+    // Verificar se já existe cliente no Asaas por CPF/CNPJ
     let existingCustomer = null;
     try {
       existingCustomer = await this.asaasService.findCustomerByCpfCnpj(cleanCpfCnpj);
@@ -109,7 +135,7 @@ export class SubscriptionService {
     }
 
     if (existingCustomer) {
-      console.log(`[SubscriptionService] Cliente encontrado no Asaas: ${existingCustomer.id}`);
+      console.log(`[SubscriptionService] Cliente encontrado no Asaas por CPF/CNPJ: ${existingCustomer.id}`);
       return existingCustomer.id;
     }
 
@@ -379,9 +405,9 @@ export class SubscriptionService {
       throw new BadRequestException("Use a rota de trial para plano gratuito");
     }
 
-    // Buscar ou criar cliente no Asaas usando dados do CompanySetup
-    if (!subscription.asaasCustomerId) {
-      const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId);
+    // Buscar ou criar cliente no Asaas (verifica se existe no ambiente atual)
+    const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId, subscription.asaasCustomerId);
+    if (asaasCustomerId !== subscription.asaasCustomerId) {
       subscription.asaasCustomerId = asaasCustomerId;
       subscription = await this.uow.companySubscriptionRepository.save(subscription);
     }
@@ -484,16 +510,16 @@ export class SubscriptionService {
       throw new NotFoundException("Subscription não encontrada para esta empresa");
     }
 
-    // Buscar ou criar cliente no Asaas usando dados do CompanySetup
-    if (!subscription.asaasCustomerId) {
-      const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId);
+    // Buscar ou criar cliente no Asaas (verifica se existe no ambiente atual)
+    const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId, subscription.asaasCustomerId);
+    if (asaasCustomerId !== subscription.asaasCustomerId) {
       subscription.asaasCustomerId = asaasCustomerId;
       subscription = await this.uow.companySubscriptionRepository.save(subscription);
     }
 
     // Criar cobrança avulsa no Asaas
     const payment = await this.asaasService.createPayment({
-      customer: subscription.asaasCustomerId,
+      customer: asaasCustomerId,
       billingType: "UNDEFINED",
       value: amount,
       dueDate: this.asaasService.getNextDueDate(),
@@ -535,16 +561,16 @@ export class SubscriptionService {
       throw new NotFoundException("Subscription não encontrada para esta empresa");
     }
 
-    // Buscar ou criar cliente no Asaas usando dados do CompanySetup
-    if (!subscription.asaasCustomerId) {
-      const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId);
+    // Buscar ou criar cliente no Asaas (verifica se existe no ambiente atual)
+    const asaasCustomerId = await this.getOrCreateAsaasCustomer(companyId, subscription.asaasCustomerId);
+    if (asaasCustomerId !== subscription.asaasCustomerId) {
       subscription.asaasCustomerId = asaasCustomerId;
       subscription = await this.uow.companySubscriptionRepository.save(subscription);
     }
 
     // Criar cobrança no Asaas com checkout completo
     const asaasPayment = await this.asaasService.createPayment({
-      customer: subscription.asaasCustomerId,
+      customer: asaasCustomerId,
       billingType: "UNDEFINED",
       value: amount,
       dueDate: this.asaasService.getNextDueDate(),

@@ -21,7 +21,13 @@ export interface AsaasSubscription {
   billingType: "BOLETO" | "CREDIT_CARD" | "PIX" | "UNDEFINED";
   value: number;
   nextDueDate: string;
-  cycle: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMIANNUALLY" | "YEARLY";
+  cycle:
+    | "WEEKLY"
+    | "BIWEEKLY"
+    | "MONTHLY"
+    | "QUARTERLY"
+    | "SEMIANNUALLY"
+    | "YEARLY";
   description?: string;
   status: "ACTIVE" | "INACTIVE" | "EXPIRED";
   externalReference?: string;
@@ -34,7 +40,20 @@ export interface AsaasPayment {
   billingType: string;
   value: number;
   netValue: number;
-  status: "PENDING" | "RECEIVED" | "CONFIRMED" | "OVERDUE" | "REFUNDED" | "RECEIVED_IN_CASH" | "REFUND_REQUESTED" | "CHARGEBACK_REQUESTED" | "CHARGEBACK_DISPUTE" | "AWAITING_CHARGEBACK_REVERSAL" | "DUNNING_REQUESTED" | "DUNNING_RECEIVED" | "AWAITING_RISK_ANALYSIS";
+  status:
+    | "PENDING"
+    | "RECEIVED"
+    | "CONFIRMED"
+    | "OVERDUE"
+    | "REFUNDED"
+    | "RECEIVED_IN_CASH"
+    | "REFUND_REQUESTED"
+    | "CHARGEBACK_REQUESTED"
+    | "CHARGEBACK_DISPUTE"
+    | "AWAITING_CHARGEBACK_REVERSAL"
+    | "DUNNING_REQUESTED"
+    | "DUNNING_RECEIVED"
+    | "AWAITING_RISK_ANALYSIS";
   dueDate: string;
   paymentDate?: string;
   invoiceUrl?: string;
@@ -81,25 +100,24 @@ export class AsaasService {
   constructor() {
     // Limpar a chave de API (remover aspas e espaços extras)
     let rawKey = process.env.ASAAS_API_KEY || "";
-    this.apiKey = rawKey.trim().replace(/^["']|["']$/g, '');
-    
-    // URLs corretas do Asaas:
-    // Sandbox: https://sandbox.asaas.com/api/v3
-    // Produção: https://api.asaas.com/v3 (SEM /api duplicado!)
-    let baseUrl = (process.env.ASAAS_BASE_URL || "https://sandbox.asaas.com/api/v3").trim();
-    
-    // Corrigir URL de produção se estiver errada
-    if (baseUrl === "https://api.asaas.com/api/v3") {
-      baseUrl = "https://api.asaas.com/v3";
-      console.warn("[AsaasService] URL corrigida: api.asaas.com/api/v3 -> api.asaas.com/v3");
-    }
-    
-    this.baseUrl = baseUrl;
-    
+    this.apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
+
+    // Default: sandbox. Em produção, configurar ASAAS_BASE_URL=https://api.asaas.com/v3
+    this.baseUrl = (
+      process.env.ASAAS_BASE_URL || "https://sandbox.asaas.com/api/v3"
+    ).trim();
+
     console.log("[AsaasService] Configuração:");
     console.log("  - Base URL:", this.baseUrl);
-    console.log("  - API Key:", this.apiKey ? `${ this.apiKey.substring(0, 8)}...${this.apiKey.substring(this.apiKey.length - 4)}` : "NÃO CONFIGURADA");
-    
+    console.log(
+      "  - API Key:",
+      this.apiKey
+        ? `${this.apiKey.substring(0, 8)}...${this.apiKey.substring(
+            this.apiKey.length - 4
+          )}`
+        : "NÃO CONFIGURADA"
+    );
+
     if (!this.apiKey) {
       console.warn("[AsaasService] ASAAS_API_KEY não configurada!");
     }
@@ -111,12 +129,12 @@ export class AsaasService {
     body?: any
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const options: RequestInit = {
       method,
       headers: {
         "Content-Type": "application/json",
-        "access_token": this.apiKey,
+        access_token: this.apiKey,
       },
     };
 
@@ -127,7 +145,9 @@ export class AsaasService {
     console.log(`[AsaasService] ${method} ${url}`);
     console.log(`[AsaasService] Headers:`, {
       "Content-Type": "application/json",
-      "access_token": this.apiKey ? `${this.apiKey.substring(0, 15)}...` : "MISSING",
+      access_token: this.apiKey
+        ? `${this.apiKey.substring(0, 15)}...`
+        : "MISSING",
     });
     if (body) {
       console.log(`[AsaasService] Body:`, JSON.stringify(body, null, 2));
@@ -135,22 +155,33 @@ export class AsaasService {
 
     try {
       const response = await fetch(url, options);
-      
+
       // Log detalhado da resposta
       console.log(`[AsaasService] Response status: ${response.status}`);
-      console.log(`[AsaasService] Response headers:`, Object.fromEntries(response.headers.entries()));
-      
+      console.log(
+        `[AsaasService] Response headers:`,
+        Object.fromEntries(response.headers.entries())
+      );
+
       // Ler o texto bruto primeiro para debug
       const rawText = await response.text();
-      console.log(`[AsaasService] Response body (raw):`, rawText.substring(0, 500));
-      
+      console.log(
+        `[AsaasService] Response body (raw):`,
+        rawText.substring(0, 500)
+      );
+
       // Tentar parsear como JSON
       let data;
       try {
         data = JSON.parse(rawText);
       } catch (parseError) {
-        console.error(`[AsaasService] Erro ao parsear JSON. Response não é JSON válido.`);
-        console.error(`[AsaasService] Primeiros 1000 chars:`, rawText.substring(0, 1000));
+        console.error(
+          `[AsaasService] Erro ao parsear JSON. Response não é JSON válido.`
+        );
+        console.error(
+          `[AsaasService] Primeiros 1000 chars:`,
+          rawText.substring(0, 1000)
+        );
         throw new HttpException(
           "Resposta inválida do Asaas. Verifique se a API Key e URL são do mesmo ambiente (produção/sandbox).",
           HttpStatus.BAD_GATEWAY
@@ -188,23 +219,32 @@ export class AsaasService {
     return this.request<AsaasCustomer>(`/customers/${customerId}`);
   }
 
-  async updateCustomer(customerId: string, data: Partial<CreateCustomerDto>): Promise<AsaasCustomer> {
+  async updateCustomer(
+    customerId: string,
+    data: Partial<CreateCustomerDto>
+  ): Promise<AsaasCustomer> {
     return this.request<AsaasCustomer>(`/customers/${customerId}`, "PUT", data);
   }
 
   async findCustomerByEmail(email: string): Promise<AsaasCustomer | null> {
-    const result = await this.request<{ data: AsaasCustomer[] }>(`/customers?email=${encodeURIComponent(email)}`);
+    const result = await this.request<{ data: AsaasCustomer[] }>(
+      `/customers?email=${encodeURIComponent(email)}`
+    );
     return result.data?.[0] || null;
   }
 
   async findCustomerByCpfCnpj(cpfCnpj: string): Promise<AsaasCustomer | null> {
-    const result = await this.request<{ data: AsaasCustomer[] }>(`/customers?cpfCnpj=${encodeURIComponent(cpfCnpj)}`);
+    const result = await this.request<{ data: AsaasCustomer[] }>(
+      `/customers?cpfCnpj=${encodeURIComponent(cpfCnpj)}`
+    );
     return result.data?.[0] || null;
   }
 
   // ========== SUBSCRIPTIONS ==========
 
-  async createSubscription(data: CreateSubscriptionDto): Promise<AsaasSubscription> {
+  async createSubscription(
+    data: CreateSubscriptionDto
+  ): Promise<AsaasSubscription> {
     return this.request<AsaasSubscription>("/subscriptions", "POST", data);
   }
 
@@ -212,21 +252,41 @@ export class AsaasService {
     return this.request<AsaasSubscription>(`/subscriptions/${subscriptionId}`);
   }
 
-  async updateSubscription(subscriptionId: string, data: Partial<CreateSubscriptionDto>): Promise<AsaasSubscription> {
-    return this.request<AsaasSubscription>(`/subscriptions/${subscriptionId}`, "PUT", data);
+  async updateSubscription(
+    subscriptionId: string,
+    data: Partial<CreateSubscriptionDto>
+  ): Promise<AsaasSubscription> {
+    return this.request<AsaasSubscription>(
+      `/subscriptions/${subscriptionId}`,
+      "PUT",
+      data
+    );
   }
 
-  async cancelSubscription(subscriptionId: string): Promise<{ deleted: boolean }> {
-    return this.request<{ deleted: boolean }>(`/subscriptions/${subscriptionId}`, "DELETE");
+  async cancelSubscription(
+    subscriptionId: string
+  ): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>(
+      `/subscriptions/${subscriptionId}`,
+      "DELETE"
+    );
   }
 
-  async listSubscriptionsByCustomer(customerId: string): Promise<AsaasSubscription[]> {
-    const result = await this.request<{ data: AsaasSubscription[] }>(`/subscriptions?customer=${customerId}`);
+  async listSubscriptionsByCustomer(
+    customerId: string
+  ): Promise<AsaasSubscription[]> {
+    const result = await this.request<{ data: AsaasSubscription[] }>(
+      `/subscriptions?customer=${customerId}`
+    );
     return result.data || [];
   }
 
-  async getSubscriptionPayments(subscriptionId: string): Promise<AsaasPayment[]> {
-    const result = await this.request<{ data: AsaasPayment[] }>(`/subscriptions/${subscriptionId}/payments`);
+  async getSubscriptionPayments(
+    subscriptionId: string
+  ): Promise<AsaasPayment[]> {
+    const result = await this.request<{ data: AsaasPayment[] }>(
+      `/subscriptions/${subscriptionId}/payments`
+    );
     return result.data || [];
   }
 
@@ -241,15 +301,24 @@ export class AsaasService {
   }
 
   async cancelPayment(paymentId: string): Promise<{ deleted: boolean }> {
-    return this.request<{ deleted: boolean }>(`/payments/${paymentId}`, "DELETE");
+    return this.request<{ deleted: boolean }>(
+      `/payments/${paymentId}`,
+      "DELETE"
+    );
   }
 
   async listPaymentsByCustomer(customerId: string): Promise<AsaasPayment[]> {
-    const result = await this.request<{ data: AsaasPayment[] }>(`/payments?customer=${customerId}`);
+    const result = await this.request<{ data: AsaasPayment[] }>(
+      `/payments?customer=${customerId}`
+    );
     return result.data || [];
   }
 
-  async getPixQrCode(paymentId: string): Promise<{ encodedImage: string; payload: string; expirationDate: string }> {
+  async getPixQrCode(paymentId: string): Promise<{
+    encodedImage: string;
+    payload: string;
+    expirationDate: string;
+  }> {
     return this.request(`/payments/${paymentId}/pixQrCode`);
   }
 
@@ -283,4 +352,3 @@ export class AsaasService {
     return cpfCnpj.replace(/[^\d]/g, "");
   }
 }
-
