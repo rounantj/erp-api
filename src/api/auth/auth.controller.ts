@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import {
   PayloadAccessToken,
+  RegisterCompanyPayload,
   UserAuthUsecase,
 } from "@/domain/auth/usecases/auth.usecase";
 import { JwtAuthGuard } from "@/domain/auth/guard/jwt-auth.guard";
@@ -41,6 +42,17 @@ export class AuthController {
   @Post("auth/register")
   async register(@Request() req: any, @Body() payload: PayloadAccessToken) {
     return this.authService.register(payload);
+  }
+
+  /**
+   * Registro público de nova empresa
+   * Cria: Company + User (admin) + CompanySetup + CompanySubscription (trial)
+   * Gera senha automática e retorna em plaintext (única vez)
+   */
+  @Throttle(THROTTLE_OPTIONS)
+  @Post("auth/register-company")
+  async registerCompany(@Body() payload: RegisterCompanyPayload) {
+    return this.authService.registerCompany(payload);
   }
 
   @UseGuards(JwtAuthGuard)
