@@ -83,7 +83,18 @@ export class AsaasService {
     let rawKey = process.env.ASAAS_API_KEY || "";
     this.apiKey = rawKey.trim().replace(/^["']|["']$/g, '');
     
-    this.baseUrl = (process.env.ASAAS_BASE_URL || "https://sandbox.asaas.com/api/v3").trim();
+    // URLs corretas do Asaas:
+    // Sandbox: https://sandbox.asaas.com/api/v3
+    // Produção: https://api.asaas.com/v3 (SEM /api duplicado!)
+    let baseUrl = (process.env.ASAAS_BASE_URL || "https://sandbox.asaas.com/api/v3").trim();
+    
+    // Corrigir URL de produção se estiver errada
+    if (baseUrl === "https://api.asaas.com/api/v3") {
+      baseUrl = "https://api.asaas.com/v3";
+      console.warn("[AsaasService] URL corrigida: api.asaas.com/api/v3 -> api.asaas.com/v3");
+    }
+    
+    this.baseUrl = baseUrl;
     
     console.log("[AsaasService] Configuração:");
     console.log("  - Base URL:", this.baseUrl);
