@@ -3,10 +3,8 @@ import {
   Post,
   Get,
   Body,
-  Headers,
   HttpCode,
   HttpStatus,
-  UnauthorizedException,
 } from "@nestjs/common";
 import { SubscriptionService } from "./subscription.service";
 import { SubscriptionStatus } from "@/domain/entities/company-subscription.entity";
@@ -100,27 +98,12 @@ export class WebhookController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  async handleWebhook(
-    @Body() payload: AsaasWebhookPayload,
-    @Headers("asaas-access-token") accessToken: string
-  ) {
+  async handleWebhook(@Body() payload: AsaasWebhookPayload) {
     console.log("===========================================");
     console.log("[Webhook] 🔔 WEBHOOK RECEBIDO!");
     console.log("[Webhook] Evento:", payload.event);
     console.log("[Webhook] Payload:", JSON.stringify(payload, null, 2));
     console.log("===========================================");
-
-    // Validar token do webhook (opcional, mas recomendado)
-    const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
-    console.log("[Webhook] Token recebido:", accessToken ? `${accessToken.substring(0, 4)}...` : "NENHUM");
-    console.log("[Webhook] Token esperado:", webhookToken ? `${webhookToken.substring(0, 4)}...` : "NÃO CONFIGURADO");
-    
-    if (webhookToken && accessToken !== webhookToken) {
-      console.warn("[Webhook] Token inválido recebido");
-      console.warn("[Webhook] Recebido:", accessToken);
-      console.warn("[Webhook] Esperado:", webhookToken);
-      throw new UnauthorizedException("Token inválido");
-    }
 
     try {
       switch (payload.event) {
