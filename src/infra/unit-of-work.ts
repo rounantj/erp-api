@@ -2,9 +2,12 @@ import { Caixa } from "@/domain/entities/caixa.entity";
 import { Cliente } from "@/domain/entities/cliente.entity";
 import { CompanySetup } from "@/domain/entities/company-setup.entity";
 import { Company } from "@/domain/entities/company.entity";
+import { CompanySubscription } from "@/domain/entities/company-subscription.entity";
 import { Curriculum } from "@/domain/entities/curriculum.entity";
 import { Despesa } from "@/domain/entities/despesas.entity";
 import { MovimentacaoCaixa } from "@/domain/entities/movimentacao_caixa.entity";
+import { PaymentHistory } from "@/domain/entities/payment-history.entity";
+import { Plan } from "@/domain/entities/plan.entity";
 import { ProductImages } from "@/domain/entities/product_image.entity";
 import { Produto } from "@/domain/entities/produtos.entity";
 import { User } from "@/domain/entities/user.entity";
@@ -92,5 +95,17 @@ export class UnitOfWorkService {
 
   get clienteRepository(): Repository<Cliente> {
     return this.getManager().getRepository(Cliente);
+  }
+
+  get planRepository(): Repository<Plan> {
+    return this.getManager().getRepository(Plan);
+  }
+
+  get companySubscriptionRepository(): Repository<CompanySubscription> {
+    return this.getManager().getRepository(CompanySubscription);
+  }
+
+  get paymentHistoryRepository(): Repository<PaymentHistory> {
+    return this.getManager().getRepository(PaymentHistory);
   }
 }

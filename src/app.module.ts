@@ -15,6 +15,7 @@ import { MovimentacaoCaixaModule } from "./api/movimentacao_caixa/movimentacao-c
 import { CaixaModule } from "./api/caixa/caixa.module";
 import { FofaAi } from "./api/fofa-ai/fofa-ai.module";
 import { ClienteModule } from "./api/cliente/cliente.module";
+import { SubscriptionModule } from "./api/subscription/subscription.module";
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ClienteModule } from "./api/cliente/cliente.module";
     CaixaModule,
     FofaAi,
     ClienteModule,
+    SubscriptionModule,
   ],
   controllers: [],
   providers: [UnitOfWorkService],
