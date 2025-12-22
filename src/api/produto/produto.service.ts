@@ -89,6 +89,25 @@ export class ProdutoService {
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
+    // Buscar imagens da tabela product_images para produtos sem imageUrl
+    const produtosSemImagem = data.filter(p => !p.imageUrl && p.ean);
+    if (produtosSemImagem.length > 0) {
+      const eans = produtosSemImagem.map(p => p.ean);
+      const imagens = await this.uow.productImagesRepository.find({
+        where: eans.map(ean => ({ ean })),
+      });
+
+      // Mapear imagens por EAN
+      const imagensPorEan = new Map(imagens.map(img => [img.ean, img.base_64]));
+
+      // Atribuir imagens aos produtos
+      data.forEach(produto => {
+        if (!produto.imageUrl && produto.ean && imagensPorEan.has(produto.ean)) {
+          produto.imageUrl = imagensPorEan.get(produto.ean);
+        }
+      });
+    }
+
     return {
       data,
       total,
@@ -107,12 +126,33 @@ export class ProdutoService {
       where.companyId = companyId;
     }
 
-    return await this.uow.produtoRepository.find({
+    const produtos = await this.uow.produtoRepository.find({
       where,
       order: {
         updatedAt: "DESC",
       },
     });
+
+    // Buscar imagens da tabela product_images para produtos sem imageUrl
+    const produtosSemImagem = produtos.filter(p => !p.imageUrl && p.ean);
+    if (produtosSemImagem.length > 0) {
+      const eans = produtosSemImagem.map(p => p.ean);
+      const imagens = await this.uow.productImagesRepository.find({
+        where: eans.map(ean => ({ ean })),
+      });
+
+      // Mapear imagens por EAN
+      const imagensPorEan = new Map(imagens.map(img => [img.ean, img.base_64]));
+
+      // Atribuir imagens aos produtos
+      produtos.forEach(produto => {
+        if (!produto.imageUrl && produto.ean && imagensPorEan.has(produto.ean)) {
+          produto.imageUrl = imagensPorEan.get(produto.ean);
+        }
+      });
+    }
+
+    return produtos;
   }
   async getOne(produtoId: number): Promise<Produto> {
     return await this.uow.produtoRepository.findOne({
@@ -153,6 +193,15 @@ export class ProdutoService {
 
       if (byId) {
         console.log(`✅ Produto encontrado por ID: ${byId.descricao}`);
+        // Buscar imagem se não tiver
+        if (!byId.imageUrl && byId.ean) {
+          const imagem = await this.uow.productImagesRepository.findOne({
+            where: { ean: byId.ean },
+          });
+          if (imagem) {
+            byId.imageUrl = imagem.base_64;
+          }
+        }
         return byId;
       }
     }
@@ -172,6 +221,15 @@ export class ProdutoService {
 
     if (byEan) {
       console.log(`✅ Produto encontrado por EAN: ${byEan.descricao}`);
+      // Buscar imagem se não tiver
+      if (!byEan.imageUrl && byEan.ean) {
+        const imagem = await this.uow.productImagesRepository.findOne({
+          where: { ean: byEan.ean },
+        });
+        if (imagem) {
+          byEan.imageUrl = imagem.base_64;
+        }
+      }
       return byEan;
     }
 
@@ -194,6 +252,15 @@ export class ProdutoService {
       console.log(
         `✅ Produto encontrado por EAN (LIKE): ${byEanLike.descricao}`
       );
+      // Buscar imagem se não tiver
+      if (!byEanLike.imageUrl && byEanLike.ean) {
+        const imagem = await this.uow.productImagesRepository.findOne({
+          where: { ean: byEanLike.ean },
+        });
+        if (imagem) {
+          byEanLike.imageUrl = imagem.base_64;
+        }
+      }
       return byEanLike;
     }
 
@@ -204,6 +271,21 @@ export class ProdutoService {
     const id = Number(produto?.produtoId);
     const prd: Produto = { id, deletedAt: new Date() } as Produto;
     return await this.uow.produtoRepository.delete(prd.id);
+  }
+
+  /**
+   * Atualiza a URL da imagem do produto
+   */
+  async updateImageUrl(productId: number, imageUrl: string): Promise<Produto> {
+    const produto = await this.getOne(productId);
+    if (!produto) {
+      throw new Error("Produto não encontrado");
+    }
+    
+    produto.imageUrl = imageUrl;
+    produto.updatedAt = new Date();
+    
+    return await this.uow.produtoRepository.save(produto);
   }
 
   async processExcelData(data: any[]): Promise<any> {

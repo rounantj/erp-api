@@ -33,6 +33,24 @@ export class CompanySetup {
     @Column({ name: "company_integration", type: 'jsonb', nullable: true })
     companyIntegration?: any;
 
+    // Novos campos para branding e configuração
+    @Column({ name: "logo_url", type: 'text', nullable: true })
+    logoUrl?: string;
+
+    @Column({ name: "sidebar_color", nullable: true, default: '#667eea' })
+    sidebarColor?: string;
+
+    @Column({ name: "company_phone", nullable: true })
+    companyPhone?: string;
+
+    @Column({ name: "company_email", nullable: true })
+    companyEmail?: string;
+
+    @Column({ name: "receipt_footer", type: 'text', nullable: true })
+    receiptFooter?: string;
+
+    @Column({ name: "onboarding_completed", default: false })
+    onboardingCompleted: boolean;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;

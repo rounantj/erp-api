@@ -14,16 +14,22 @@ import {
   UseGuards,
   UseInterceptors,
   NotFoundException,
+  HttpException,
+  HttpStatus,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "@/domain/auth/jwt-auth.guard";
 import { ProdutoService } from "./produto.service";
 import { Produto } from "@/domain/entities/produtos.entity";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { StorageService } from "@/infra/storage.service";
 import * as xlsx from "xlsx";
 
 @Controller("produtos")
 export class ProdutoController {
-  constructor(private produtoService: ProdutoService) {}
+  constructor(
+    private produtoService: ProdutoService,
+    private storageService: StorageService
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -117,6 +123,71 @@ export class ProdutoController {
   @Delete()
   delete(@Request() req: any, @Query() podutoId: number) {
     return this.produtoService.delete(podutoId);
+  }
+
+  /**
+   * Upload de imagem do produto
+   * POST /produtos/:id/upload-image
+   * Aceita multipart/form-data com campo "file" ou JSON com campo "base64"
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/upload-image")
+  @UseInterceptors(FileInterceptor("file"))
+  async uploadImage(
+    @Request() req: any,
+    @Param("id") productId: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { base64?: string }
+  ) {
+    try {
+      const companyId = req.user?.sub?.companyId || req.user?.companyId;
+      
+      if (!companyId) {
+        throw new HttpException("Company ID é obrigatório", HttpStatus.BAD_REQUEST);
+      }
+
+      // Verificar se o produto existe
+      const produto = await this.produtoService.getOne(productId);
+      if (!produto) {
+        throw new HttpException("Produto não encontrado", HttpStatus.NOT_FOUND);
+      }
+
+      let imageUrl: string;
+
+      if (file) {
+        // Upload via multipart/form-data
+        const { folder, filename } = this.storageService.getProductImagePath(companyId, productId);
+        imageUrl = await this.storageService.uploadFile(
+          file.buffer,
+          filename,
+          folder,
+          file.mimetype
+        );
+      } else if (body.base64) {
+        // Upload via base64
+        const { folder, filename } = this.storageService.getProductImagePath(companyId, productId);
+        imageUrl = await this.storageService.uploadBase64(body.base64, filename, folder);
+      } else {
+        throw new HttpException(
+          "Nenhum arquivo ou base64 fornecido",
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      // Atualizar o produto com a nova URL da imagem
+      await this.produtoService.updateImageUrl(productId, imageUrl);
+
+      return {
+        success: true,
+        message: "Imagem do produto atualizada com sucesso",
+        data: { imageUrl },
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || "Erro ao fazer upload da imagem",
+        HttpStatus.BAD_REQUEST
+      );
+    }
   }
 
   @UseGuards(JwtAuthGuard)

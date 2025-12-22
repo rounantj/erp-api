@@ -21,6 +21,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { cors: true });
 
+  // Aumenta o limite do body-parser para aceitar uploads de imagens em base64
+  app.use(json({ limit: "50mb" }));
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -30,10 +33,6 @@ async function bootstrap() {
       },
     })
   );
-
-  if (process.env.ENABLE_HTTP_TRACING == "true") {
-    app.use(json());
-  }
 
   // Allow CORS from any origin
   app.enableCors({

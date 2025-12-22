@@ -167,6 +167,44 @@ export class CompaniesService {
   }
 
   /**
+   * Atualiza a URL da logo da empresa
+   */
+  async updateLogoUrl(companyId: number, logoUrl: string): Promise<CompanySetup> {
+    const setups = await this.getSetup(companyId);
+    
+    if (setups.length === 0) {
+      // Criar setup se não existir
+      const newSetup = new CompanySetup();
+      newSetup.companyId = companyId;
+      newSetup.companyName = "";
+      newSetup.logoUrl = logoUrl;
+      newSetup.updatedAt = new Date();
+      return await this.uow.companySetupRepository.save(newSetup);
+    }
+
+    const setup = setups[0];
+    setup.logoUrl = logoUrl;
+    setup.updatedAt = new Date();
+    return await this.uow.companySetupRepository.save(setup);
+  }
+
+  /**
+   * Marca o onboarding como concluído
+   */
+  async completeOnboarding(companyId: number): Promise<CompanySetup> {
+    const setups = await this.getSetup(companyId);
+    
+    if (setups.length === 0) {
+      throw new Error("Setup da empresa não encontrado");
+    }
+
+    const setup = setups[0];
+    setup.onboardingCompleted = true;
+    setup.updatedAt = new Date();
+    return await this.uow.companySetupRepository.save(setup);
+  }
+
+  /**
    * Associa um usuário a uma empresa
    */
   async addUserToCompany(userId: number, companyId: number): Promise<User> {

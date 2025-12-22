@@ -11,7 +11,10 @@ import {
   UseGuards,
   HttpException,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import {
   CompaniesService,
   CreateCompanyDto,
@@ -20,10 +23,14 @@ import {
 import { JwtAuthGuard } from "@/domain/auth/jwt-auth.guard";
 import { SuperAdminGuard } from "@/domain/auth/guard/super-admin.guard";
 import { CompanySetup } from "@/domain/entities/company-setup.entity";
+import { StorageService } from "@/infra/storage.service";
 
 @Controller("companies")
 export class CompaniesController {
-  constructor(private companieService: CompaniesService) {}
+  constructor(
+    private companieService: CompaniesService,
+    private storageService: StorageService
+  ) {}
 
   /**
    * Criar nova empresa
@@ -112,7 +119,117 @@ export class CompaniesController {
   async updateSetup(@Request() req: any, @Body() params: CompanySetup) {
     const userId = req.user?.sub?.id || req.user?.id;
     params.updatedByUser = userId?.toString();
+
+    // Garantir que companyId seja válido (usar do token se não vier no body)
+    if (!params.companyId || params.companyId.toString() === "") {
+      params.companyId = req.user?.sub?.companyId || req.user?.companyId;
+    }
+
+    // Garantir que id seja válido (remover se for string vazia)
+    if (params.id && params.id.toString() === "") {
+      delete (params as any).id;
+    }
+
     return await this.companieService.updateSetup(params);
+  }
+
+  /**
+   * Upload de logo da empresa
+   * POST /companies/upload-logo
+   * Aceita multipart/form-data com campo "file" ou JSON com campo "base64"
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post("upload-logo")
+  @UseInterceptors(FileInterceptor("file"))
+  async uploadLogo(
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { base64?: string; companyId?: number }
+  ) {
+    try {
+      const companyId =
+        body.companyId || req.user?.sub?.companyId || req.user?.companyId;
+
+      if (!companyId) {
+        throw new HttpException(
+          "Company ID é obrigatório",
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      let logoUrl: string;
+
+      if (file) {
+        // Upload via multipart/form-data
+        const { folder, filename } =
+          this.storageService.getCompanyLogoPath(companyId);
+        logoUrl = await this.storageService.uploadFile(
+          file.buffer,
+          filename,
+          folder,
+          file.mimetype
+        );
+      } else if (body.base64) {
+        // Upload via base64
+        const { folder, filename } =
+          this.storageService.getCompanyLogoPath(companyId);
+        logoUrl = await this.storageService.uploadBase64(
+          body.base64,
+          filename,
+          folder
+        );
+      } else {
+        throw new HttpException(
+          "Nenhum arquivo ou base64 fornecido",
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      // Atualizar o setup da empresa com a nova URL da logo
+      await this.companieService.updateLogoUrl(companyId, logoUrl);
+
+      return {
+        success: true,
+        message: "Logo atualizada com sucesso",
+        data: { logoUrl },
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || "Erro ao fazer upload da logo",
+        HttpStatus.BAD_REQUEST
+      );
+    }
+  }
+
+  /**
+   * Marcar onboarding como concluído
+   * POST /companies/complete-onboarding
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post("complete-onboarding")
+  async completeOnboarding(@Request() req: any) {
+    try {
+      const companyId = req.user?.sub?.companyId || req.user?.companyId;
+
+      if (!companyId) {
+        throw new HttpException(
+          "Company ID é obrigatório",
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      await this.companieService.completeOnboarding(companyId);
+
+      return {
+        success: true,
+        message: "Onboarding concluído com sucesso",
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || "Erro ao completar onboarding",
+        HttpStatus.BAD_REQUEST
+      );
+    }
   }
 
   /**
