@@ -112,8 +112,13 @@ export class WebhookController {
 
     // Validar token do webhook (opcional, mas recomendado)
     const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
+    console.log("[Webhook] Token recebido:", accessToken ? `${accessToken.substring(0, 4)}...` : "NENHUM");
+    console.log("[Webhook] Token esperado:", webhookToken ? `${webhookToken.substring(0, 4)}...` : "NÃO CONFIGURADO");
+    
     if (webhookToken && accessToken !== webhookToken) {
       console.warn("[Webhook] Token inválido recebido");
+      console.warn("[Webhook] Recebido:", accessToken);
+      console.warn("[Webhook] Esperado:", webhookToken);
       throw new UnauthorizedException("Token inválido");
     }
 
