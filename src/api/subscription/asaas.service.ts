@@ -114,10 +114,37 @@ export class AsaasService {
     }
 
     console.log(`[AsaasService] ${method} ${url}`);
+    console.log(`[AsaasService] Headers:`, {
+      "Content-Type": "application/json",
+      "access_token": this.apiKey ? `${this.apiKey.substring(0, 15)}...` : "MISSING",
+    });
+    if (body) {
+      console.log(`[AsaasService] Body:`, JSON.stringify(body, null, 2));
+    }
 
     try {
       const response = await fetch(url, options);
-      const data = await response.json();
+      
+      // Log detalhado da resposta
+      console.log(`[AsaasService] Response status: ${response.status}`);
+      console.log(`[AsaasService] Response headers:`, Object.fromEntries(response.headers.entries()));
+      
+      // Ler o texto bruto primeiro para debug
+      const rawText = await response.text();
+      console.log(`[AsaasService] Response body (raw):`, rawText.substring(0, 500));
+      
+      // Tentar parsear como JSON
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseError) {
+        console.error(`[AsaasService] Erro ao parsear JSON. Response não é JSON válido.`);
+        console.error(`[AsaasService] Primeiros 1000 chars:`, rawText.substring(0, 1000));
+        throw new HttpException(
+          "Resposta inválida do Asaas. Verifique se a API Key e URL são do mesmo ambiente (produção/sandbox).",
+          HttpStatus.BAD_GATEWAY
+        );
+      }
 
       if (!response.ok) {
         console.error(`[AsaasService] Erro na requisição:`, data);
