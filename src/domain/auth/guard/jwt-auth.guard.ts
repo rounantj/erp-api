@@ -10,6 +10,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   canActivate(context: ExecutionContext) {
     // Add your custom authentication logic here
     // for example, call super.logIn(request) to establish a session.
+    // Note: Clerk tokens are handled by ClerkService endpoints (/auth/clerk/sync)
+    // This guard is used for traditional JWT tokens
     return super.canActivate(context)
   }
 

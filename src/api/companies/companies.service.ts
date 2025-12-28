@@ -5,6 +5,7 @@ import { UnitOfWorkService } from "@/infra/unit-of-work";
 import { Injectable } from "@nestjs/common";
 import { IsNull } from "typeorm";
 import * as bcrypt from "bcryptjs";
+import { ClerkService } from "@/api/auth/clerk/clerk.service";
 
 export interface CreateCompanyDto {
   name: string;
@@ -22,7 +23,10 @@ export interface CreateUserForCompanyDto {
 
 @Injectable()
 export class CompaniesService {
-  constructor(private uow: UnitOfWorkService) {}
+  constructor(
+    private uow: UnitOfWorkService,
+    private clerkService: ClerkService
+  ) {}
 
   /**
    * Cria uma nova empresa
@@ -276,23 +280,7 @@ export class CompaniesService {
         : "atendente";
 
     // Hash da senha
-    console.log(
-      `[CREATE USER DEBUG] Password received length: ${userData.password?.length}`
-    );
     const hashedPassword = await bcrypt.hash(userData.password, 10);
-    console.log(
-      `[CREATE USER DEBUG] Hashed password length: ${hashedPassword?.length}`
-    );
-    console.log(
-      `[CREATE USER DEBUG] Hash starts with: ${hashedPassword?.substring(
-        0,
-        10
-      )}`
-    );
-
-    // Verificar se o hash foi criado corretamente
-    const testCompare = await bcrypt.compare(userData.password, hashedPassword);
-    console.log(`[CREATE USER DEBUG] Test compare result: ${testCompare}`);
 
     // Criar novo usuário
     const user = new User();
@@ -312,6 +300,25 @@ export class CompaniesService {
       user.updatedByUser = createdByUserId.toString();
     }
 
-    return await this.uow.userRepository.save(user);
+    const savedUser = await this.uow.userRepository.save(user);
+
+    // Criar usuário no Clerk também
+    try {
+      await this.clerkService.createUserWithPassword(
+        userData.email,
+        userData.password,
+        userData.name
+      );
+    } catch (clerkError: any) {
+      // Log do erro mas não falha a criação do usuário no banco
+      // O usuário ainda poderá ser sincronizado manualmente depois
+      const errorMessage =
+        clerkError instanceof Error ? clerkError.message : "Erro desconhecido";
+      console.error(
+        `Erro ao criar usuário no Clerk (${userData.email}): ${errorMessage}`
+      );
+    }
+
+    return savedUser;
   }
 }

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "./api/auth/auth.module";
+import { ClerkModule } from "./api/auth/clerk/clerk.module";
 import { HealthModule } from "./api/health/health.module";
 import { CustomTypeOrmModule } from "./api/config/custom-typpeorm.module";
 import { typeormConfig } from "./api/config/typeorm.config";
@@ -22,6 +23,7 @@ import { SubscriptionModule } from "./api/subscription/subscription.module";
     TypeOrmModule.forRoot(typeormConfig()),
     CustomTypeOrmModule,
     AuthModule,
+    ClerkModule,
     CompaniesModule,
     UsersModule,
     DespesaModule,
