@@ -92,3 +92,4 @@ export class AddCompanyIdToEntities1766238596000 implements MigrationInterface {
   }
 }
 
+

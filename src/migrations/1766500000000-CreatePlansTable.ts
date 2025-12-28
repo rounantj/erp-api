@@ -106,3 +106,4 @@ export class CreatePlansTable1766500000000 implements MigrationInterface {
   }
 }
 
+

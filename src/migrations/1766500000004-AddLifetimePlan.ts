@@ -64,3 +64,4 @@ export class AddLifetimePlan1766500000004 implements MigrationInterface {
   }
 }
 
+

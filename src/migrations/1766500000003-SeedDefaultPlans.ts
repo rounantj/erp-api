@@ -79,3 +79,4 @@ export class SeedDefaultPlans1766500000003 implements MigrationInterface {
   }
 }
 
+
