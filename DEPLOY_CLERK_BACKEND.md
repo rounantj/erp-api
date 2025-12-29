@@ -50,3 +50,4 @@ curl -X POST https://loja-api.fofa.app.br/auth/clerk/verify \
 - **NUNCA** commite a Secret Key no código ou repositório
 - A Secret Key deve estar apenas nas variáveis de ambiente
 - Após alterar a variável, reinicie o servidor
+

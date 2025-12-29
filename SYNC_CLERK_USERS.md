@@ -47,3 +47,4 @@ tsx src/scripts/sync-clerk-users.ts
 - Usuários sem email são ignorados
 - O script é idempotente: pode ser executado múltiplas vezes sem criar duplicatas
 
+

@@ -19,3 +19,4 @@ export class AddEmailToCompanies1766600000000 implements MigrationInterface {
 }
 
 
+
