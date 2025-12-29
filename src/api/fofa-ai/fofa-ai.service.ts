@@ -582,6 +582,12 @@ ${personalData}`;
     return "application/octet-stream";
   }
 
+  public async getUserById(userId: number): Promise<any> {
+    return await this.uow.userRepository.findOne({
+      where: { id: userId },
+    });
+  }
+
   public async curriculumCreated(
     usingAi: boolean,
     userId: number,

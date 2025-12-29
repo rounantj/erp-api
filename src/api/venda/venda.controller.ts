@@ -53,10 +53,68 @@ export class VendasController {
     return this.vendasservice.getAll(rangeDates, companyId);
   }
 
+  /**
+   * Obtém vendas e despesas dos últimos 12 meses agrupadas por mês
+   * GET /vendas/monthly-stats
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get("monthly-stats")
+  async getMonthlyStats(@Request() req: any) {
+    try {
+      const companyId = req.user?.sub?.companyId || req.user?.companyId;
+      return await this.vendasservice.getMonthlySalesAndExpenses(companyId);
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || "Falha ao obter estatísticas mensais",
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Obtém quantidade de currículos criados por mês dos últimos 12 meses
+   * GET /vendas/monthly-curriculums
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get("monthly-curriculums")
+  async getMonthlyCurriculums(@Request() req: any) {
+    try {
+      const companyId = req.user?.sub?.companyId || req.user?.companyId;
+      return await this.vendasservice.getMonthlyCurriculums(companyId);
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || "Falha ao obter dados de currículos",
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Lista todas as solicitações de exclusão pendentes
+   * GET /vendas/pending-exclusions
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get("pending-exclusions")
+  async getPendingExclusions(@Request() req: any) {
+    try {
+      const companyId = req.user?.sub?.companyId || req.user?.companyId;
+      return await this.vendasservice.getPendingExclusionRequests(companyId);
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || "Falha ao obter solicitações pendentes",
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get(":id")
-  getOne(@Request() req: any, @Param("id") vendaId: number) {
-    return this.vendasservice.getOne(vendaId);
+  getOne(@Request() req: any, @Param("id") vendaId: string) {
+    const id = parseInt(vendaId, 10);
+    if (isNaN(id)) {
+      throw new HttpException("ID de venda inválido", HttpStatus.BAD_REQUEST);
+    }
+    return this.vendasservice.getOne(id);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -146,24 +204,6 @@ export class VendasController {
       throw new HttpException(
         error.message || "Falha ao rejeitar exclusão",
         HttpStatus.BAD_REQUEST
-      );
-    }
-  }
-
-  /**
-   * Lista todas as solicitações de exclusão pendentes
-   * GET /vendas/pending-exclusions
-   */
-  @UseGuards(JwtAuthGuard)
-  @Get("pending-exclusions")
-  async getPendingExclusions(@Request() req: any) {
-    try {
-      const companyId = req.user?.sub?.companyId || req.user?.companyId;
-      return await this.vendasservice.getPendingExclusionRequests(companyId);
-    } catch (error: any) {
-      throw new HttpException(
-        error.message || "Falha ao obter solicitações pendentes",
-        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }

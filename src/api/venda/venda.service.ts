@@ -556,9 +556,14 @@ export class VendasService {
   }
 
   async getOne(vendaId: number) {
+    // Validar vendaId para evitar NaN
+    const validId = vendaId && !isNaN(Number(vendaId)) ? Number(vendaId) : null;
+    if (!validId) {
+      throw new Error("ID de venda inválido");
+    }
     return await this.uow.vendaRepository.findOne({
       where: {
-        id: vendaId,
+        id: validId,
       },
     });
   }
@@ -969,6 +974,258 @@ export class VendasService {
       );
       throw new Error(
         `Falha ao processar dados para dashboard: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Retorna vendas e despesas dos últimos 12 meses agrupadas por mês
+   * @param companyId - ID da empresa para filtrar os dados
+   * @returns Objeto com meses, vendas e despesas
+   */
+  async getMonthlySalesAndExpenses(companyId?: number): Promise<any> {
+    try {
+      // Validar companyId para evitar NaN ou undefined
+      const validCompanyId =
+        companyId && !isNaN(Number(companyId)) ? Number(companyId) : null;
+      const companyFilter = validCompanyId
+        ? `AND "companyId" = ${validCompanyId}`
+        : "";
+
+      // Query para vendas dos últimos 12 meses
+      // Soma os totais igual ao dashboard (totalEsseMes e totalHoje)
+      const vendasQuery = `
+        SELECT 
+          TO_CHAR(created_at, 'Mon') as mes,
+          EXTRACT(MONTH FROM created_at) as mes_num,
+          EXTRACT(YEAR FROM created_at) as ano,
+          COALESCE(SUM(CAST(total AS NUMERIC)), 0) as total_vendas
+        FROM venda
+        WHERE created_at >= NOW() - INTERVAL '12 months'
+          AND deleted_at IS NULL
+          ${companyFilter}
+        GROUP BY mes, mes_num, ano
+        ORDER BY ano, mes_num
+      `;
+
+      // Query para despesas dos últimos 12 meses
+      const despesasQuery = `
+        SELECT 
+          TO_CHAR(created_at, 'Mon') as mes,
+          EXTRACT(MONTH FROM created_at) as mes_num,
+          EXTRACT(YEAR FROM created_at) as ano,
+          COALESCE(SUM(valor), 0) as total_despesas
+        FROM despesa
+        WHERE created_at >= NOW() - INTERVAL '12 months'
+          ${companyFilter}
+        GROUP BY mes, mes_num, ano
+        ORDER BY ano, mes_num
+      `;
+
+      const [vendasData, despesasData] = await Promise.all([
+        this.uow.vendaRepository.query(vendasQuery),
+        this.uow.vendaRepository.query(despesasQuery),
+      ]);
+
+      // Criar mapa dos últimos 12 meses
+      const mesesMap = new Map();
+      const mesesNomes = [
+        "Jan",
+        "Fev",
+        "Mar",
+        "Abr",
+        "Mai",
+        "Jun",
+        "Jul",
+        "Ago",
+        "Set",
+        "Out",
+        "Nov",
+        "Dez",
+      ];
+
+      // Inicializar últimos 12 meses com valores zerados
+      for (let i = 11; i >= 0; i--) {
+        const date = moment().subtract(i, "months");
+        const mesNum = date.month() + 1;
+        const ano = date.year();
+        const mesNome = mesesNomes[date.month()];
+        const key = `${ano}-${mesNum}`;
+        mesesMap.set(key, {
+          mes: mesNome,
+          mesNum,
+          ano,
+          vendas: 0,
+          despesas: 0,
+        });
+      }
+
+      // Preencher vendas - garantindo conversão numérica igual ao dashboard
+      vendasData.forEach((row: any) => {
+        const key = `${row.ano}-${row.mes_num}`;
+        if (mesesMap.has(key)) {
+          const total = parseFloat(row.total_vendas) || 0;
+          // Garantir que não seja NaN, igual ao dashboard
+          mesesMap.get(key).vendas = isNaN(total) ? 0 : total;
+        }
+      });
+
+      // Preencher despesas - garantindo conversão numérica
+      despesasData.forEach((row: any) => {
+        const key = `${row.ano}-${row.mes_num}`;
+        if (mesesMap.has(key)) {
+          const total = parseFloat(row.total_despesas) || 0;
+          // Garantir que não seja NaN
+          mesesMap.get(key).despesas = isNaN(total) ? 0 : total;
+        }
+      });
+
+      // Converter para arrays ordenados
+      const meses = Array.from(mesesMap.values()).map((m) => m.mes);
+      const vendas = Array.from(mesesMap.values()).map((m) => m.vendas);
+      const despesas = Array.from(mesesMap.values()).map((m) => m.despesas);
+
+      return {
+        meses,
+        vendas,
+        despesas,
+      };
+    } catch (error: any) {
+      console.error("Erro ao buscar dados mensais:", error);
+      throw new Error(`Falha ao processar dados mensais: ${error.message}`);
+    }
+  }
+
+  /**
+   * Retorna quantidade de currículos criados por mês dos últimos 12 meses
+   * @param companyId - ID da empresa para filtrar os dados
+   * @returns Objeto com meses e quantidade de currículos
+   */
+  async getMonthlyCurriculums(companyId?: number): Promise<any> {
+    try {
+      // Validar companyId para evitar NaN ou undefined
+      const validCompanyId =
+        companyId && !isNaN(Number(companyId)) ? Number(companyId) : null;
+      const companyFilter = validCompanyId
+        ? `AND "companyId" = ${validCompanyId}`
+        : "";
+
+      // Query para currículos dos últimos 12 meses
+      const curriculumsQuery = `
+        SELECT 
+          TO_CHAR(created_at, 'Mon') as mes,
+          EXTRACT(MONTH FROM created_at) as mes_num,
+          EXTRACT(YEAR FROM created_at) as ano,
+          COUNT(*)::integer as total_curriculos
+        FROM curriculum
+        WHERE created_at >= NOW() - INTERVAL '12 months'
+          ${companyFilter}
+        GROUP BY mes, mes_num, ano
+        ORDER BY ano, mes_num
+      `;
+
+      const curriculumsData = await this.uow.curriculumRepository.query(
+        curriculumsQuery
+      );
+
+      console.log("Currículos encontrados:", curriculumsData);
+      console.log("Total de registros retornados:", curriculumsData.length);
+      console.log("CompanyId usado:", validCompanyId);
+
+      // Log total de currículos para debug - SEM filtro de data
+      const totalQueryAll = `
+        SELECT COUNT(*)::integer as total
+        FROM curriculum
+        ${validCompanyId ? `WHERE "companyId" = ${validCompanyId}` : ""}
+      `;
+      const totalResultAll = await this.uow.curriculumRepository.query(
+        totalQueryAll
+      );
+      console.log(
+        "Total de currículos (TODOS, sem filtro de data):",
+        totalResultAll[0]?.total || 0
+      );
+
+      // Log total de currículos dos últimos 12 meses
+      const totalQuery = `
+        SELECT COUNT(*)::integer as total
+        FROM curriculum
+        WHERE created_at >= NOW() - INTERVAL '12 months'
+          ${companyFilter}
+      `;
+      const totalResult = await this.uow.curriculumRepository.query(totalQuery);
+      console.log(
+        "Total de currículos (últimos 12 meses):",
+        totalResult[0]?.total || 0
+      );
+
+      // Log para verificar distribuição por ano
+      const yearDistributionQuery = `
+        SELECT 
+          EXTRACT(YEAR FROM created_at) as ano,
+          COUNT(*)::integer as total
+        FROM curriculum
+        ${validCompanyId ? `WHERE "companyId" = ${validCompanyId}` : ""}
+        GROUP BY ano
+        ORDER BY ano
+      `;
+      const yearDistribution = await this.uow.curriculumRepository.query(
+        yearDistributionQuery
+      );
+      console.log("Distribuição por ano:", yearDistribution);
+
+      // Criar mapa dos últimos 12 meses
+      const mesesMap = new Map();
+      const mesesNomes = [
+        "Jan",
+        "Fev",
+        "Mar",
+        "Abr",
+        "Mai",
+        "Jun",
+        "Jul",
+        "Ago",
+        "Set",
+        "Out",
+        "Nov",
+        "Dez",
+      ];
+
+      // Inicializar últimos 12 meses com valores zerados
+      for (let i = 11; i >= 0; i--) {
+        const date = moment().subtract(i, "months");
+        const mesNum = date.month() + 1;
+        const ano = date.year();
+        const mesNome = mesesNomes[date.month()];
+        const key = `${ano}-${mesNum}`;
+        mesesMap.set(key, {
+          mes: mesNome,
+          mesNum,
+          ano,
+          curriculos: 0,
+        });
+      }
+
+      // Preencher currículos
+      curriculumsData.forEach((row: any) => {
+        const key = `${row.ano}-${row.mes_num}`;
+        if (mesesMap.has(key)) {
+          mesesMap.get(key).curriculos = parseInt(row.total_curriculos) || 0;
+        }
+      });
+
+      // Converter para arrays ordenados
+      const meses = Array.from(mesesMap.values()).map((m) => m.mes);
+      const curriculos = Array.from(mesesMap.values()).map((m) => m.curriculos);
+
+      return {
+        meses,
+        curriculos,
+      };
+    } catch (error: any) {
+      console.error("Erro ao buscar dados de currículos:", error);
+      throw new Error(
+        `Falha ao processar dados de currículos: ${error.message}`
       );
     }
   }

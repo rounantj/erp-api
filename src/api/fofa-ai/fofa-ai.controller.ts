@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  HttpException,
   HttpStatus,
   Post,
   Res,
@@ -55,10 +56,27 @@ export class FofaAiController {
     @Req() request: any
   ) {
     try {
+      const userId = request.user.sub.id;
+      // Buscar companyId do usuário - primeiro do JWT, se não tiver, buscar do banco
+      let companyId = request.user.sub?.companyId || request.user?.companyId;
+      
+      // Se não encontrou no JWT, buscar do banco de dados
+      if (!companyId && userId) {
+        const user = await this.fofaAiService.getUserById(userId);
+        companyId = user?.companyId;
+      }
+      
+      if (!companyId) {
+        throw new HttpException(
+          "CompanyId não encontrado para o usuário",
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      
       const result = await this.fofaAiService.curriculumCreated(
         data.usingAi,
-        request.user.sub.id,
-        request.user.sub.id,
+        userId,
+        companyId,
         data.content,
         data.prompt
       );
