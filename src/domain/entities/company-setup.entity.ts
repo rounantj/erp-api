@@ -52,6 +52,9 @@ export class CompanySetup {
   @Column({ name: "onboarding_completed", default: false })
   onboardingCompleted: boolean;
 
+  @Column({ name: "allow_negative_stock", default: true })
+  allowNegativeStock: boolean;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 

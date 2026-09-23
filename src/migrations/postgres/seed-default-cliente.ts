@@ -4,7 +4,7 @@ import { Cliente } from "../../domain/entities/cliente.entity";
 
 const dataSource = new DataSource(typeormConfig() as any);
 
-async function seedDefaultCliente() {
+export async function seedDefaultCliente() {
   try {
     await dataSource.initialize();
     console.log("Conectado ao banco de dados");
@@ -45,4 +45,6 @@ async function seedDefaultCliente() {
   }
 }
 
-seedDefaultCliente();
+if (require.main === module) {
+  seedDefaultCliente();
+}

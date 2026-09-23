@@ -2,7 +2,7 @@ import { Venda } from "@/domain/entities/vendas.entity";
 import { UnitOfWorkService } from "@/infra/unit-of-work";
 import { Injectable } from "@nestjs/common";
 import * as moment from "moment";
-import { Between, In } from "typeorm";
+import { Between, In, IsNull } from "typeorm";
 import "moment-timezone"; // Importa a extensão de timezone do moment
 import { Produto } from "@/domain/entities/produtos.entity";
 // Configura o timezone padrão
@@ -12,25 +12,122 @@ moment.tz.setDefault("America/Sao_Paulo");
 export class VendasService {
   constructor(private uow: UnitOfWorkService) {}
 
-  async create(venda: Venda, companyId?: number) {
-    // Buscar caixa no banco de dados
-    const caixa = await this.uow.caixaRepository.findOne({
-      where: { id: venda.caixaId },
+  private isServico(categoria?: string): boolean {
+    const normalized = (categoria || "").toLowerCase();
+    return normalized.includes("servi");
+  }
+
+  private getItemQuantity(item: any): number {
+    const quantidade = Number(item?.quantidade ?? item?.qtd ?? 1);
+    return Number.isFinite(quantidade) && quantidade > 0 ? quantidade : 1;
+  }
+
+  private async getAllowNegativeStock(companyId: number): Promise<boolean> {
+    const setup = await this.uow.companySetupRepository.findOne({
+      where: { companyId, deletedAt: IsNull() },
+      order: { updatedAt: "DESC" },
     });
-    if (!caixa) {
-      throw new Error("Caixa não encontrado");
-    }
-    venda.caixa = caixa;
-    venda.updatedAt = new Date();
+    return setup?.allowNegativeStock !== false;
+  }
 
-    // Definir companyId se fornecido
-    if (companyId) {
-      venda.companyId = companyId;
-    } else if (!venda.companyId) {
-      venda.companyId = 1; // fallback para compatibilidade
+  private async getOrCreateEstoqueWithLock(
+    companyId: number,
+    productId: number
+  ): Promise<any> {
+    let estoque = await this.uow.estoqueRepository
+      .createQueryBuilder("estoque")
+      .setLock("pessimistic_write")
+      .where('estoque."companyId" = :companyId', { companyId })
+      .andWhere('estoque."productId" = :productId', { productId })
+      .getOne();
+
+    if (!estoque) {
+      estoque = await this.uow.estoqueRepository.save({
+        companyId,
+        productId,
+        quantity: 0,
+        updatedAt: new Date(),
+      });
     }
 
-    return await this.uow.vendaRepository.save(venda);
+    return estoque;
+  }
+
+  private async applyStockMovement(
+    produtos: any[],
+    companyId: number,
+    movement: "debit" | "credit"
+  ): Promise<void> {
+    if (!Array.isArray(produtos) || produtos.length === 0) return;
+
+    const allowNegativeStock = await this.getAllowNegativeStock(companyId);
+    const produtosMap = new Map<number, Produto>();
+
+    for (const item of produtos) {
+      if (!item?.id) continue;
+      const productId = Number(item.id);
+      if (!productId || Number.isNaN(productId)) continue;
+
+      let produto = produtosMap.get(productId);
+      if (!produto) {
+        produto = await this.uow.produtoRepository.findOne({
+          where: { id: productId, companyId, deletedAt: IsNull() },
+        });
+        if (produto) produtosMap.set(productId, produto);
+      }
+
+      const categoria = (item?.categoria || produto?.categoria || "").toString();
+      if (this.isServico(categoria)) continue;
+
+      const quantidade = this.getItemQuantity(item);
+      const estoque = await this.getOrCreateEstoqueWithLock(companyId, productId);
+      const saldoAtual = Number(estoque.quantity || 0);
+      const novoSaldo =
+        movement === "debit" ? saldoAtual - quantidade : saldoAtual + quantidade;
+
+      if (movement === "debit" && !allowNegativeStock && novoSaldo < 0) {
+        const descricao = produto?.descricao || item?.descricao || `ID ${productId}`;
+        throw new Error(
+          `Sem estoque para ${descricao}. Saldo atual: ${saldoAtual}, solicitado: ${quantidade}`
+        );
+      }
+
+      estoque.quantity = novoSaldo;
+      estoque.updatedAt = new Date();
+      await this.uow.estoqueRepository.save(estoque);
+    }
+  }
+
+  async create(venda: Venda, companyId?: number) {
+    await this.uow.startTransaction();
+    try {
+      // Buscar caixa no banco de dados
+      const caixa = await this.uow.caixaRepository.findOne({
+        where: { id: venda.caixaId },
+      });
+      if (!caixa) {
+        throw new Error("Caixa não encontrado");
+      }
+
+      // Definir companyId se fornecido
+      if (companyId) {
+        venda.companyId = companyId;
+      } else if (!venda.companyId) {
+        venda.companyId = 1; // fallback para compatibilidade
+      }
+
+      venda.caixa = caixa;
+      venda.updatedAt = new Date();
+
+      await this.applyStockMovement(venda.produtos, venda.companyId, "debit");
+      const savedVenda = await this.uow.vendaRepository.save(venda);
+
+      await this.uow.commitTransaction();
+      return savedVenda;
+    } catch (error) {
+      await this.uow.rollbackTransaction();
+      throw error;
+    }
   }
 
   /**
@@ -627,34 +724,45 @@ export class VendasService {
     reviewedById: number,
     notes?: string
   ): Promise<Venda> {
-    // Verificar se a venda existe e se há uma solicitação pendente
-    const venda = await this.uow.vendaRepository.findOne({
-      where: {
-        id: vendaId,
-      },
-    });
+    await this.uow.startTransaction();
+    try {
+      // Verificar se a venda existe e se há uma solicitação pendente
+      const venda = await this.uow.vendaRepository.findOne({
+        where: {
+          id: vendaId,
+        },
+      });
 
-    if (!venda) {
-      throw new Error("Venda não encontrada");
+      if (!venda) {
+        throw new Error("Venda não encontrada");
+      }
+
+      if (!venda.exclusionRequested || venda.exclusionStatus !== "pending") {
+        throw new Error(
+          "Não existe uma solicitação de exclusão pendente para esta venda"
+        );
+      }
+
+      // Atualizar status da solicitação
+      venda.exclusionStatus = "approved";
+      venda.exclusionReviewedAt = new Date();
+      venda.exclusionReviewedBy = reviewedById;
+      venda.exclusionReviewNotes = notes || "";
+
+      // Devolver estoque dos produtos da venda aprovada para exclusão
+      await this.applyStockMovement(venda.produtos, venda.companyId || 1, "credit");
+
+      // Salvar as alterações
+      await this.uow.vendaRepository.save(venda);
+
+      // Executar o soft-delete
+      const removed = await this.uow.vendaRepository.softRemove(venda);
+      await this.uow.commitTransaction();
+      return removed;
+    } catch (error) {
+      await this.uow.rollbackTransaction();
+      throw error;
     }
-
-    if (!venda.exclusionRequested || venda.exclusionStatus !== "pending") {
-      throw new Error(
-        "Não existe uma solicitação de exclusão pendente para esta venda"
-      );
-    }
-
-    // Atualizar status da solicitação
-    venda.exclusionStatus = "approved";
-    venda.exclusionReviewedAt = new Date();
-    venda.exclusionReviewedBy = reviewedById;
-    venda.exclusionReviewNotes = notes || "";
-
-    // Salvar as alterações
-    await this.uow.vendaRepository.save(venda);
-
-    // Executar o soft-delete
-    return await this.uow.vendaRepository.softRemove(venda);
   }
 
   /**

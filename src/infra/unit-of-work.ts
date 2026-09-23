@@ -5,6 +5,7 @@ import { Company } from "@/domain/entities/company.entity";
 import { CompanySubscription } from "@/domain/entities/company-subscription.entity";
 import { Curriculum } from "@/domain/entities/curriculum.entity";
 import { Despesa } from "@/domain/entities/despesas.entity";
+import { Estoque } from "@/domain/entities/estoque.entity";
 import { MovimentacaoCaixa } from "@/domain/entities/movimentacao_caixa.entity";
 import { PaymentHistory } from "@/domain/entities/payment-history.entity";
 import { Plan } from "@/domain/entities/plan.entity";
@@ -71,6 +72,10 @@ export class UnitOfWorkService {
 
   get produtoRepository(): Repository<Produto> {
     return this.getManager().getRepository(Produto);
+  }
+
+  get estoqueRepository(): Repository<Estoque> {
+    return this.getManager().getRepository(Estoque);
   }
 
   get userRepository(): Repository<User> {

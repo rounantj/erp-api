@@ -25,10 +25,103 @@ export interface SearchProductsResult {
 export class ProdutoService {
   constructor(private uow: UnitOfWorkService) {}
 
-  async upsert(produto: Produto) {
+  private getNormalizedStockQuantity(value: any): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 0;
+    return parsed;
+  }
+
+  private async getAllowNegativeStock(companyId?: number): Promise<boolean> {
+    if (!companyId) return true;
+    const setup = await this.uow.companySetupRepository.findOne({
+      where: { companyId, deletedAt: IsNull() },
+      order: { updatedAt: "DESC" },
+    });
+    return setup?.allowNegativeStock !== false;
+  }
+
+  private isServico(categoria?: string): boolean {
+    const normalized = (categoria || "").toLowerCase();
+    return normalized.includes("servi");
+  }
+
+  private async attachStockInfo(produtos: Produto[], companyId?: number) {
+    const allowNegativeStock = await this.getAllowNegativeStock(companyId);
+    const productIds = produtos.map((p) => p.id).filter(Boolean);
+    const estoques =
+      productIds.length > 0 && companyId
+        ? await this.uow.estoqueRepository.find({
+            where: productIds.map((productId) => ({ companyId, productId })),
+          })
+        : [];
+
+    const estoquePorProduto = new Map(
+      estoques.map((estoque) => [estoque.productId, Number(estoque.quantity || 0)])
+    );
+
+    return produtos.map((produto) => {
+      const stockQuantity = Number(estoquePorProduto.get(produto.id) ?? 0);
+      const isOutOfStock =
+        !allowNegativeStock &&
+        !this.isServico(produto?.categoria) &&
+        stockQuantity <= 0;
+
+      return {
+        ...produto,
+        stockQuantity,
+        isOutOfStock,
+        allowNegativeStock,
+      };
+    });
+  }
+
+  private async upsertStockForProduct(
+    productId: number,
+    companyId: number,
+    stockQuantity: any
+  ) {
+    if (typeof stockQuantity === "undefined" || stockQuantity === null) return;
+
+    const desiredQty = this.getNormalizedStockQuantity(stockQuantity);
+    const existing = await this.uow.estoqueRepository.findOne({
+      where: { productId, companyId },
+    });
+
+    if (existing) {
+      existing.quantity = desiredQty;
+      existing.updatedAt = new Date();
+      await this.uow.estoqueRepository.save(existing);
+      return;
+    }
+
+    await this.uow.estoqueRepository.save({
+      productId,
+      companyId,
+      quantity: desiredQty,
+      updatedAt: new Date(),
+    });
+  }
+
+  async upsert(produto: Produto & { stockQuantity?: number }) {
     produto.updatedAt = new Date();
     if (!produto.companyId) produto.companyId = 1;
-    return await this.uow.produtoRepository.save(produto);
+    const saved = await this.uow.produtoRepository.save(produto);
+
+    // Sempre garantimos registro de estoque para produto (serviço também pode ter 0)
+    await this.upsertStockForProduct(
+      saved.id,
+      saved.companyId,
+      produto.stockQuantity
+    );
+
+    // Evita falso negativo no front: se o enrich falhar, retorna o produto salvo.
+    try {
+      const [savedWithStock] = await this.attachStockInfo([saved], saved.companyId);
+      return savedWithStock;
+    } catch (error) {
+      console.error("Falha ao enriquecer estoque no retorno do upsert:", error);
+      return saved;
+    }
   }
 
   async save(produtos: Produto[]) {
@@ -114,8 +207,10 @@ export class ProdutoService {
       });
     }
 
+    const dataWithStock = await this.attachStockInfo(data, companyId);
+
     return {
-      data,
+      data: dataWithStock as any,
       total,
       page,
       limit,
@@ -164,18 +259,22 @@ export class ProdutoService {
       });
     }
 
-    return produtos;
+    return (await this.attachStockInfo(produtos, companyId)) as any;
   }
-  async getOne(produtoId: number): Promise<Produto> {
-    return await this.uow.produtoRepository.findOne({
+  async getOne(produtoId: number): Promise<any> {
+    const produto = await this.uow.produtoRepository.findOne({
       where: {
         id: produtoId,
       },
     });
+    if (!produto) return null;
+    const companyId = (produto as any).companyId;
+    const [produtoComEstoque] = await this.attachStockInfo([produto], companyId);
+    return produtoComEstoque;
   }
 
   // Buscar produto por código de barras (EAN) ou ID
-  async findByCode(code: string, companyId?: number): Promise<Produto | null> {
+  async findByCode(code: string, companyId?: number): Promise<any | null> {
     const cleanCode = code.toString().trim();
     console.log(
       `🔍 Buscando produto por código: "${cleanCode}" (companyId: ${companyId})`
@@ -214,7 +313,11 @@ export class ProdutoService {
             byId.imageUrl = imagem.base_64;
           }
         }
-        return byId;
+        const [byIdWithStock] = await this.attachStockInfo(
+          [byId],
+          byId.companyId
+        );
+        return byIdWithStock;
       }
     }
 
@@ -242,7 +345,11 @@ export class ProdutoService {
           byEan.imageUrl = imagem.base_64;
         }
       }
-      return byEan;
+      const [byEanWithStock] = await this.attachStockInfo(
+        [byEan],
+        byEan.companyId
+      );
+      return byEanWithStock;
     }
 
     // Tenta buscar por EAN com LIKE (caso tenha espaços ou zeros à esquerda)
@@ -273,7 +380,11 @@ export class ProdutoService {
           byEanLike.imageUrl = imagem.base_64;
         }
       }
-      return byEanLike;
+      const [byEanLikeWithStock] = await this.attachStockInfo(
+        [byEanLike],
+        byEanLike.companyId
+      );
+      return byEanLikeWithStock;
     }
 
     console.log(`❌ Produto não encontrado com código: "${cleanCode}"`);
@@ -301,7 +412,7 @@ export class ProdutoService {
   }
 
   async processExcelData(data: any[]): Promise<any> {
-    const results: Produto[] = [];
+    const results: any[] = [];
     let index = 0;
     for (const item of data) {
       index++;
@@ -393,7 +504,7 @@ export class ProdutoService {
     const produtos = await this.processarProdutos(payloads, companyId, userId);
     const uniquePrds = produtos.filter((prd) => {
       return !dbProducts.some(
-        (dbPrd) => dbPrd.ean === prd.ean || dbPrd.descricao === prd.descricao
+        (dbPrd: any) => dbPrd.ean === prd.ean || dbPrd.descricao === prd.descricao
       );
     });
     uniquePrds.forEach((prd) => {

@@ -15,7 +15,9 @@ export class HealthController {
   @Get('health')
   @HealthCheck()
   async check() {
-    return this.health.check([async () => this.typeOrm.pingCheck('database')])
+    return this.health.check([
+      async () => this.typeOrm.pingCheck('database', { timeout: 5000 }),
+    ])
   }
 
   @Get('ready')

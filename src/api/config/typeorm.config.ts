@@ -10,23 +10,32 @@ const IN_CONTAINER = process.env.IN_CONTAINER == "1";
 
 const dbconfig = (executedByTypeOrmCli: boolean) => {
   let entitiesPath = "./dist/domain/entities/**/*.entity.js";
-  let migrationsPath = `./dist/migrations/**/*.js`;
+  let migrationsPaths = [
+    "./dist/migrations/[0-9]*.js",
+    "./dist/migrations/postgres/[0-9]*.js",
+  ];
 
   if (IN_CONTAINER) {
     entitiesPath = "./domain/entities/**/*.entity.js";
-    migrationsPath = `./migrations/**/*.js`;
+    migrationsPaths = [
+      "./migrations/[0-9]*.js",
+      "./migrations/postgres/[0-9]*.js",
+    ];
   }
 
   if (executedByTypeOrmCli) {
     entitiesPath = "src/domain/entities/**/*.entity.ts";
-    migrationsPath = `src/migrations/**/*.ts`;
+    migrationsPaths = [
+      "src/migrations/[0-9]*.ts",
+      "src/migrations/postgres/[0-9]*.ts",
+    ];
   }
 
   const dataSource = {
     name: "default",
     type: "postgres",
     entities: [entitiesPath],
-    migrations: [migrationsPath],
+    migrations: migrationsPaths,
     timezone: "America/Sao_Paulo", // Define o timezone correto
     synchronize: false,
     poolSize: 50,

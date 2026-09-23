@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "./api/auth/auth.module";
 import { HealthModule } from "./api/health/health.module";
-import { CustomTypeOrmModule } from "./api/config/custom-typpeorm.module";
 import { typeormConfig } from "./api/config/typeorm.config";
 import { CompaniesModule } from "./api/companies/companies.module";
 import { UsersModule } from "./api/users/users.module";
@@ -20,7 +19,6 @@ import { SubscriptionModule } from "./api/subscription/subscription.module";
 @Module({
   imports: [
     TypeOrmModule.forRoot(typeormConfig()),
-    CustomTypeOrmModule,
     AuthModule,
     CompaniesModule,
     UsersModule,
