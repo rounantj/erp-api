@@ -38,7 +38,7 @@ const dbconfig = (executedByTypeOrmCli: boolean) => {
     migrations: migrationsPaths,
     timezone: "America/Sao_Paulo", // Define o timezone correto
     synchronize: false,
-    poolSize: 50,
+    poolSize: Number(process.env.DB_POOL_SIZE) || 8,
     keepConnectionAlive: false,
     migrationsRun: true,
     logging: false,
@@ -53,6 +53,9 @@ const dbconfig = (executedByTypeOrmCli: boolean) => {
       rejectUnauthorized: false,
     },
     extra: {
+      max: Number(process.env.DB_POOL_SIZE) || 8,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
       options: "-c timezone=America/Sao_Paulo",
     },
     types: ["vector"],
