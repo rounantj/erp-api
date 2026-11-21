@@ -15,6 +15,7 @@ import { CaixaModule } from "./api/caixa/caixa.module";
 import { FofaAi } from "./api/fofa-ai/fofa-ai.module";
 import { ClienteModule } from "./api/cliente/cliente.module";
 import { SubscriptionModule } from "./api/subscription/subscription.module";
+import { WhatsappModule } from "./api/whatsapp/whatsapp.module";
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { SubscriptionModule } from "./api/subscription/subscription.module";
     FofaAi,
     ClienteModule,
     SubscriptionModule,
+    WhatsappModule,
   ],
   controllers: [],
   providers: [UnitOfWorkService],

@@ -171,6 +171,44 @@ export class StorageService {
   }
 
   /**
+   * Upload privado (sem ACL pública): acesso só por URL assinada.
+   * @param key - Caminho relativo à pasta do app (ex: "companies/1/whatsapp/arquivo.pdf")
+   */
+  async uploadPrivate(buffer: Buffer, key: string, contentType: string): Promise<string> {
+    const fullKey = `${this.folderPrefix}/${key}`;
+    await this.s3
+      .putObject({ Bucket: this.bucketName, Key: fullKey, Body: buffer, ContentType: contentType, ACL: "private" })
+      .promise();
+    return fullKey;
+  }
+
+  async getObject(fullKey: string): Promise<Buffer> {
+    const res = await this.s3.getObject({ Bucket: this.bucketName, Key: fullKey }).promise();
+    return res.Body as Buffer;
+  }
+
+  async objectExists(fullKey: string): Promise<boolean> {
+    return this.fileExists(fullKey);
+  }
+
+  /**
+   * URL temporária para um objeto privado. inline=true faz o navegador exibir (preview) em vez de baixar.
+   */
+  getSignedUrl(
+    fullKey: string,
+    options: { fileName: string; contentType?: string; inline?: boolean; expiresInSeconds?: number }
+  ): string {
+    const disposition = options.inline ? "inline" : "attachment";
+    return this.s3.getSignedUrl("getObject", {
+      Bucket: this.bucketName,
+      Key: fullKey,
+      Expires: options.expiresInSeconds ?? 600,
+      ResponseContentDisposition: `${disposition}; filename*=UTF-8''${encodeURIComponent(options.fileName)}`,
+      ...(options.contentType ? { ResponseContentType: options.contentType } : {}),
+    });
+  }
+
+  /**
    * Gerar URL para upload de logo de empresa
    */
   getCompanyLogoPath(companyId: number): { folder: string; filename: string } {

@@ -11,7 +11,8 @@ export type FeatureName =
   | "curriculos"
   | "employees"
   | "priority_support"
-  | "custom_features";
+  | "custom_features"
+  | "whatsapp_atendimento";
 
 export interface FeatureCheckResult {
   allowed: boolean;
