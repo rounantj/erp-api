@@ -2,10 +2,13 @@ import {
   BadRequestException,
   Injectable,
   Logger,
+  NotFoundException,
   OnApplicationBootstrap,
   ServiceUnavailableException,
 } from "@nestjs/common";
+import { StorageService } from "@/infra/storage.service";
 import { EvolutionClient } from "./evolution.client";
+import { previewKind } from "./orders/orders.service";
 import { SettingsService } from "./settings.service";
 import { WhatsappDb } from "./whatsapp-db";
 import { whatsappConfig } from "./whatsapp.config";
@@ -17,7 +20,8 @@ export class ConnectionService implements OnApplicationBootstrap {
   constructor(
     private readonly db: WhatsappDb,
     private readonly evolution: EvolutionClient,
-    private readonly settings: SettingsService
+    private readonly settings: SettingsService,
+    private readonly storage: StorageService
   ) {}
 
   // Só o servidor que processa a fila reaponta os webhooks: assim um ambiente local com a fila
@@ -127,6 +131,45 @@ export class ConnectionService implements OnApplicationBootstrap {
       [companyId]
     );
     return rows;
+  }
+
+  async conversationHistory(companyId: number, conversationId: string) {
+    const { rows: convRows } = await this.db.query(
+      `SELECT c.id, cu.name, cu.phone,
+              (c.human_takeover_until IS NOT NULL AND c.human_takeover_until > NOW()) AS paused
+       FROM whatsapp_conversations c JOIN whatsapp_customers cu ON cu.id = c.customer_id
+       WHERE c.company_id = $1 AND c.id = $2`,
+      [companyId, conversationId]
+    );
+    if (!convRows[0]) throw new NotFoundException("Conversa não encontrada");
+
+    const { rows } = await this.db.query(
+      `SELECT * FROM (
+         SELECT m.id, m.sender, m.type, m.text, m.media_status, m.created_at,
+                f.id AS file_id, f.original_name, f.mime_type, f.storage_key, o.number AS order_number
+         FROM whatsapp_messages m
+         LEFT JOIN whatsapp_order_files f ON f.company_id = m.company_id AND f.source_message_id = m.provider_message_id
+         LEFT JOIN whatsapp_orders o ON o.id = f.order_id
+         WHERE m.company_id = $1 AND m.conversation_id = $2 AND m.sender <> 'pending'
+         ORDER BY m.created_at DESC LIMIT 2000
+       ) h ORDER BY created_at ASC`,
+      [companyId, conversationId]
+    );
+
+    return {
+      conversation: convRows[0],
+      messages: rows.map(({ storage_key, mime_type, ...m }) => {
+        const kind = mime_type ? previewKind(mime_type) : "none";
+        const inline = storage_key && (kind === "image" || kind === "audio" || kind === "video");
+        return {
+          ...m,
+          file_kind: m.file_id ? kind : null,
+          media_url: inline
+            ? this.storage.getSignedUrl(storage_key, { fileName: m.original_name, contentType: mime_type, inline: true })
+            : null,
+        };
+      }),
+    };
   }
 
   async listConversations(companyId: number) {

@@ -34,7 +34,7 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
 };
 
 // SVG e HTML ficam de fora de propósito: exibidos inline poderiam executar script.
-function previewKind(mime: string): PreviewKind {
+export function previewKind(mime: string): PreviewKind {
   if (/^image\/(jpeg|png|webp|gif|bmp|avif)$/.test(mime)) return "image";
   if (mime === "application/pdf") return "pdf";
   if (mime.startsWith("audio/")) return "audio";

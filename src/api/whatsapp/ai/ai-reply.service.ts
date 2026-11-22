@@ -11,6 +11,7 @@ import { ProductImagesService } from "../products/product-images.service";
 import { WhatsappDb } from "../whatsapp-db";
 import { whatsappConfig } from "../whatsapp.config";
 import { buildSystemPrompt } from "./prompt";
+import { collapseRepeatedReply } from "./reply-text";
 import { toolDefinitions, ToolExecutor } from "./tools";
 
 const HISTORY_LIMIT = 40;
@@ -64,7 +65,7 @@ export class AiReplyService {
     if (await this.messaging.isHumanTakeoverActive(conversationId)) return;
 
     const { rows: convRows } = await this.db.query(
-      `SELECT c.*, cu.name AS customer_name, s.bot_enabled, s.bot_name, s.instructions, s.timezone,
+      `SELECT c.*, cu.name AS customer_name, cu.phone AS customer_phone, s.bot_enabled, s.bot_name, s.instructions, s.timezone,
               s.product_cards_enabled, s.auto_product_images, COALESCE(co.name, 'nossa loja') AS company_name
        FROM whatsapp_conversations c
        JOIN whatsapp_customers cu ON cu.id = c.customer_id
@@ -117,6 +118,7 @@ export class AiReplyService {
       productCardsEnabled: conv.product_cards_enabled,
       today,
       customerName: conv.customer_name,
+      customerPhone: conv.customer_phone,
       pendingSummaries: (conv.pending_summaries || []).map((s: any) => ({
         resumo_id: s.id,
         instrucao: s.instrucao,
@@ -167,7 +169,7 @@ export class AiReplyService {
       messages.push(choice as ChatCompletionMessageParam);
 
       if (!choice.tool_calls?.length) {
-        reply = (choice.content || "").trim();
+        reply = collapseRepeatedReply((choice.content || "").trim());
         break;
       }
       for (const call of choice.tool_calls) {
@@ -206,27 +208,24 @@ export class AiReplyService {
     );
     const total = Number(totals[0]?.total || 0);
     const totalLine =
-      total > 0
-        ? `\nValor estimado: *${total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}* (confirmado pela loja)`
-        : "";
-    const numbersLine = `${plural ? `Números dos pedidos: ${numbers.join(", ")}` : `Número do pedido: ${numbers[0]}`}${totalLine}`;
+      total > 0 ? ` · total estimado *${total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}*\n_O valor final é confirmado na retirada._` : "";
+    const numbersLine = `📌 ${plural ? `Pedidos ${numbers.join(", ")}` : `Pedido ${numbers[0]}`}${totalLine}`;
     const remainingLine = remainingSummaries
-      ? `\n\nAinda ${remainingSummaries > 1 ? `há ${remainingSummaries} pedidos` : "há 1 pedido"} aguardando sua confirmação. É só me dizer se está tudo certo!`
+      ? `\n\nAinda ${remainingSummaries > 1 ? `tem ${remainingSummaries} pedidos` : "tem 1 pedido"} esperando seu ok, é só me dizer 😉`
       : "";
 
     if (created.every((o) => o.alreadyExisted)) {
-      return `${plural ? "Esses pedidos já estão registrados" : "Esse pedido já está registrado"}! 😊 Avisaremos por aqui assim que ${plural ? "estiverem prontos" : "estiver pronto"}.\n\n${numbersLine}${remainingLine}`;
+      return `${plural ? "Esses pedidos já estão anotados" : "Esse pedido já está anotado"} por aqui 😊 Te aviso assim que ${plural ? "ficarem prontos" : "ficar pronto"}!\n\n${numbersLine}${remainingLine}`;
     }
 
     const status = await this.hours.status(companyId);
-    const registered = plural ? "Seus pedidos foram registrados" : "Seu pedido foi registrado";
-    const ready = plural ? "estiverem prontos" : "estiver pronto";
+    const ready = plural ? "ficarem prontos" : "ficar pronto";
     if (status.isOpen) {
-      return `Perfeito! 😊 ${registered} e ${plural ? "encaminhados" : "encaminhado"} para nossa equipe. Avisaremos por aqui assim que ${ready}.\n\n${numbersLine}${remainingLine}`;
+      return `Fechado! 🙌 Já passei pra nossa equipe e te aviso aqui assim que ${ready}.\n\n${numbersLine}${remainingLine}`;
     }
     if (status.nextOpeningText) {
-      return `Perfeito! 😊 ${registered} com sucesso!\n\nNossa equipe vai começar a ${plural ? "prepará-los" : "prepará-lo"} a partir de ${status.nextOpeningText}, quando a loja abrir.\n\nAvisaremos por aqui assim que ${ready}!\n\n${numbersLine}${remainingLine}`;
+      return `Fechado! 🙌 A loja está fechada agora, então a equipe começa ${plural ? "seus pedidos" : "seu pedido"} ${status.nextOpeningText}. Te aviso aqui assim que ${ready} ✨\n\n${numbersLine}${remainingLine}`;
     }
-    return `Perfeito! 😊 ${registered} com sucesso! Avisaremos por aqui assim que ${ready}.\n\n${numbersLine}${remainingLine}`;
+    return `Fechado! 🙌 Te aviso aqui assim que ${ready}.\n\n${numbersLine}${remainingLine}`;
   }
 }

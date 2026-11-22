@@ -82,6 +82,11 @@ export class WhatsappController {
     return this.connection.listConversations(whatsappUser(req).companyId);
   }
 
+  @Get("conversas/:id/mensagens")
+  conversationHistory(@Req() req: any, @Param("id") id: string) {
+    return this.connection.conversationHistory(whatsappUser(req).companyId, id);
+  }
+
   @Post("conversas/:id/pausar-ia")
   pauseAi(@Req() req: any, @Param("id") id: string) {
     return this.connection.pauseAi(whatsappUser(req).companyId, id);

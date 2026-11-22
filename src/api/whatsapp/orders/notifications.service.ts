@@ -6,7 +6,7 @@ import { whatsappConfig } from "../whatsapp.config";
 import { WhatsappOrdersService } from "./orders.service";
 
 export function readyMessage(whatWasDone: string): string {
-  return `Olá! 😊 Seu pedido ficou pronto e já pode ser retirado:\n\n✅ ${whatWasDone}\n\nObrigado pela preferência!`;
+  return `Oba, seu pedido ficou pronto! 🎉\n\n✅ ${whatWasDone}\n\nJá pode passar aqui na loja pra retirar. Te esperamos! 😊`;
 }
 
 @Injectable()
@@ -38,7 +38,8 @@ export class NotificationsService {
             role: "system",
             content: `Você escreve para o cliente de uma loja, no WhatsApp, o que a loja fez no pedido dele, que acabou de ficar pronto.
 Responda com UMA frase curta, no passado, em primeira pessoa do plural (ex.: "Imprimimos o seu currículo em cores, 2 cópias." / "Separamos 3 cadernos de 10 matérias pra você.").
-Use só as informações dadas. Não cite preços, número de pedido, IDs, nem instruções internas da equipe (ex.: "conferir", "retirada na loja"). Sem emojis.`,
+Use só as informações dadas. Não cite preços, número de pedido, IDs, nem instruções internas da equipe (ex.: "conferir", "retirada na loja"). Sem emojis.
+Não use nomes internos do cadastro da loja (ex.: "Serviços gov.br", textos em maiúsculas): descreva com palavras normais. Não repita CPF, RG, matrícula, número de instalação nem outros dados pessoais (ex.: "Emitimos a 2ª via da sua conta de água.").`,
           },
           { role: "user", content: JSON.stringify({ instrucao: order.description, itens: order.items, arquivos: order.files }) },
         ],

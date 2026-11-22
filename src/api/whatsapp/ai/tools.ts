@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
 import type { ChatCompletionTool } from "openai/resources/chat/completions";
+import { DateTime } from "luxon";
 import { BusinessHoursService } from "../hours/business-hours.service";
+import { formatHour } from "../hours/schedule";
 import { MessagingService } from "../messaging.service";
 import { WhatsappOrdersService } from "../orders/orders.service";
 import { CatalogService, isService } from "../products/catalog.service";
@@ -69,6 +71,27 @@ const BASE_TOOLS: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
+          tipo: {
+            type: "string",
+            enum: ["impressao_copia", "servico_online", "produto", "outro"],
+            description:
+              "servico_online = certidões, 2ª via de contas e serviços feitos em site de empresa ou órgão SEM login do cliente. Serviços que exigem conta/senha gov.br ou de aplicativo (ex.: carteira de trabalho digital, Meu INSS) não viram pedido: oriente ir à loja.",
+          },
+          servico_online: {
+            type: "object",
+            description: "Obrigatório quando tipo = servico_online. Somente dados que o CLIENTE informou ou confirmou nesta conversa.",
+            properties: {
+              empresa: { type: "string", description: 'Empresa ou órgão, com a cidade se for municipal (ex.: "SAAE de <cidade>", "EDP", "Receita Federal").' },
+              referencia: {
+                type: "string",
+                description:
+                  'Para contas e boletos: o MÊS/ANO dito pelo cliente (ex.: "novembro/2026", "a deste mês", "todas em aberto"). Para documentos: qual documento. "Segunda via" ou "conta de água" NÃO é referência: se o cliente não disse o mês, deixe vazio e pergunte.',
+              },
+              identificacao: { type: "string", description: "Matrícula/instalação/inscrição, ou CPF e nome do titular." },
+            },
+            required: ["empresa", "referencia", "identificacao"],
+            additionalProperties: false,
+          },
           instrucao: { type: "string", description: "Instrução final, clara e completa para o operador executar o serviço." },
           arquivo_ids: {
             type: "array",
@@ -95,7 +118,7 @@ const BASE_TOOLS: ChatCompletionTool[] = [
             description: "ID do resumo pendente que este substitui (correção do cliente). Omita para um pedido novo.",
           },
         },
-        required: ["instrucao", "arquivo_ids", "itens"],
+        required: ["tipo", "instrucao", "arquivo_ids", "itens"],
         additionalProperties: false,
       },
     },
@@ -247,6 +270,8 @@ export class ToolExecutor {
   }
 
   private async registerSummary(args: {
+    tipo?: string;
+    servico_online?: { empresa?: string; referencia?: string; identificacao?: string };
     instrucao: string;
     recado_cliente?: string;
     arquivo_ids?: string[];
@@ -255,6 +280,22 @@ export class ToolExecutor {
   }) {
     const instrucao = (args.instrucao || "").trim();
     if (instrucao.length < 5) return { erro: "Instrução vazia ou curta demais." };
+    if (args.tipo === "servico_online") {
+      const labels = { empresa: "a empresa/órgão (e a cidade, se for municipal)", referencia: "a referência (mês da conta, qual documento)", identificacao: "os dados de identificação (matrícula/instalação ou CPF e nome do titular; para certidões, CPF/RG e demais dados pedidos)" };
+      const missing = (Object.keys(labels) as (keyof typeof labels)[]).filter((k) => !String(args.servico_online?.[k] ?? "").trim());
+      // CPF, RG, matrícula e instalação são números; sem dígitos o modelo preencheu um marcador ("pendente", "não informado").
+      if (!missing.includes("identificacao") && (String(args.servico_online?.identificacao).match(/\d/g) || []).length < 5) {
+        missing.push("identificacao");
+      }
+      if (!missing.includes("empresa") && /sua cidade|da regi[aã]o|do cliente|a confirmar|n[aã]o informad/i.test(String(args.servico_online?.empresa))) {
+        missing.push("empresa");
+      }
+      if (missing.length) {
+        return {
+          erro: `Resumo NÃO registrado. Falta perguntar ao cliente: ${missing.map((k) => labels[k]).join("; ")}. Pergunte antes de registrar e não diga que o pedido foi feito.`,
+        };
+      }
+    }
 
     const summaries = await this.loadSummaries();
     const replacing = args.substituir_resumo_id ? summaries.find((s) => s.id === args.substituir_resumo_id) : null;
@@ -302,7 +343,7 @@ export class ToolExecutor {
       ...summary,
       resumos_pendentes: others.length + 1,
       proximo_passo:
-        "Apresente o(s) resumo(s) pendente(s) ao cliente em linguagem natural e pergunte se está correto. Os pedidos ainda NÃO foram criados.",
+        "Mostre ao cliente, em um fechamento curto e natural, o que será feito e o valor estimado, e faça UMA pergunta para fechar (ex.: \"Posso fechar assim? 😊\"). Não use nomes internos de serviços. Os pedidos ainda NÃO foram criados.",
     };
   }
 
@@ -402,6 +443,7 @@ export class ToolExecutor {
     const s = await this.s.hours.status(this.ctx.companyId);
     return {
       aberta_agora: s.isOpen,
+      fecha_hoje_as: s.isOpen && s.closesAt ? formatHour(DateTime.fromISO(s.closesAt)) : null,
       proxima_abertura: s.isOpen ? null : s.nextOpeningText,
       horario_semanal: s.weeklyText,
       excecoes_proximas: s.upcomingExceptions,
