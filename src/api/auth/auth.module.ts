@@ -6,10 +6,11 @@ import { jwtConstants } from '@/domain/auth/auth.config'
 import { AuthController } from './auth.controller'
 import { UserAuthUsecase } from '@/domain/auth/usecases/auth.usecase'
 import { UnitOfWorkService } from '@/infra/unit-of-work'
+import { TeamService } from '@/api/users/team.service'
 
 @Module({
   imports: [PassportModule, JwtModule.register({ secret: jwtConstants.secret })],
-  providers: [JwtStrategy, UnitOfWorkService, UserAuthUsecase],
+  providers: [JwtStrategy, UnitOfWorkService, UserAuthUsecase, TeamService],
   controllers: [AuthController],
   exports: [],
 })

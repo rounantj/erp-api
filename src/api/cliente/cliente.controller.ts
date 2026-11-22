@@ -21,9 +21,7 @@ export class ClienteController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Request() req: any, @Body() cliente: Cliente) {
-    const user = req.user.sub;
-    cliente.companyId = user.companyId;
-    return this.clienteService.create(cliente);
+    return this.clienteService.create(req.user.sub.companyId, cliente);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -35,20 +33,20 @@ export class ClienteController {
 
   @UseGuards(JwtAuthGuard)
   @Get(":id")
-  findOne(@Param("id") id: number) {
-    return this.clienteService.findOne(id);
+  findOne(@Request() req: any, @Param("id") id: number) {
+    return this.clienteService.findOne(req.user.sub.companyId, Number(id));
   }
 
   @UseGuards(JwtAuthGuard)
   @Put(":id")
-  update(@Param("id") id: number, @Body() cliente: Partial<Cliente>) {
-    return this.clienteService.update(id, cliente);
+  update(@Request() req: any, @Param("id") id: number, @Body() cliente: Partial<Cliente>) {
+    return this.clienteService.update(req.user.sub.companyId, Number(id), cliente);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(":id")
-  remove(@Param("id") id: number) {
-    return this.clienteService.remove(id);
+  remove(@Request() req: any, @Param("id") id: number) {
+    return this.clienteService.remove(req.user.sub.companyId, Number(id));
   }
 
   @UseGuards(JwtAuthGuard)

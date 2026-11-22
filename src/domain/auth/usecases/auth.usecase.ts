@@ -85,6 +85,10 @@ export class UserAuthUsecase {
     if (!isPasswordValid) {
       throw new Error("Password invalid");
     }
+    if (user.is_active === false) {
+      throw new UnauthorizedException("Seu acesso foi bloqueado. Fale com o responsável pela loja.");
+    }
+    await this.uow.userRepository.update(user.id, { last_login: new Date() });
     const payload: PayloadAccessToken = {
       id: user.id,
       password: user.password,

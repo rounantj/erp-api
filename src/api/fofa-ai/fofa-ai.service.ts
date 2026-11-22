@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from "@nestjs/common";
+import { Injectable, HttpException, HttpStatus, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import * as fs from "fs";
@@ -593,8 +593,18 @@ ${personalData}`;
     userId: number,
     companyId: number,
     content: any,
-    prompt?: string
+    prompt?: string,
+    id?: number
   ): Promise<any> {
+    if (id) {
+      const existing = await this.uow.curriculumRepository.findOne({ where: { id, companyId } });
+      if (existing) {
+        existing.content = content;
+        existing.updatedAt = new Date();
+        existing.updatedByUser = userId.toString();
+        return await this.uow.curriculumRepository.save(existing);
+      }
+    }
     let newCurriculum: Curriculum = {} as Curriculum;
     newCurriculum.createdAt = new Date();
     newCurriculum.updatedAt = new Date();
@@ -603,9 +613,59 @@ ${personalData}`;
     newCurriculum.companyId = companyId;
     newCurriculum.content = content;
     newCurriculum.usingAi = usingAi;
-    newCurriculum.content = content;
     newCurriculum.prompt = prompt;
     const newItem = await this.uow.curriculumRepository.save(newCurriculum);
     return newItem;
+  }
+
+  public async listCurriculums(companyId: number, search?: string) {
+    const rows: { id: number; content: string; created_at: Date; updated_at: Date }[] =
+      await this.uow.curriculumRepository.query(
+        `SELECT id, content, created_at, updated_at FROM curriculum
+          WHERE "companyId" = $1 AND deleted_at IS NULL
+          ORDER BY COALESCE(updated_at, created_at) DESC`,
+        [companyId]
+      );
+    const text = (v: any) => (Array.isArray(v) ? v.filter(Boolean).join(", ") : v ? String(v) : "");
+    const plain = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const term = plain((search || "").trim());
+    const digits = (search || "").replace(/\D/g, "");
+
+    return rows
+      .map((r) => {
+        let data: any = {};
+        try {
+          data = JSON.parse(r.content || "{}");
+        } catch {
+          data = {};
+        }
+        return {
+          id: r.id,
+          nome: text(data.nome) || "Sem nome",
+          telefone: text(data.telefone),
+          profissao: text(data.profissao),
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        };
+      })
+      .filter(
+        (c) =>
+          !term ||
+          plain(c.nome).includes(term) ||
+          plain(c.profissao).includes(term) ||
+          (digits.length >= 3 && c.telefone.replace(/\D/g, "").includes(digits))
+      );
+  }
+
+  public async getCurriculum(companyId: number, id: number) {
+    const row = await this.uow.curriculumRepository.findOne({ where: { id, companyId } });
+    if (!row) throw new NotFoundException("Currículo não encontrado");
+    let data: any = {};
+    try {
+      data = JSON.parse(row.content || "{}");
+    } catch {
+      data = {};
+    }
+    return { id: row.id, createdAt: row.createdAt, data };
   }
 }

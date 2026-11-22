@@ -3,7 +3,10 @@ import {
   Controller,
   HttpException,
   HttpStatus,
+  Get,
+  Param,
   Post,
+  Query,
   Res,
   Req,
   UseGuards,
@@ -51,7 +54,7 @@ export class FofaAiController {
   @UseGuards(JwtAuthGuard)
   @Post("created-curriculo")
   async curriculoCreated(
-    @Body() data: { content: string; usingAi: boolean; prompt: string },
+    @Body() data: { content: string; usingAi: boolean; prompt: string; id?: number },
     @Res() response: any,
     @Req() request: any
   ) {
@@ -78,7 +81,8 @@ export class FofaAiController {
         userId,
         companyId,
         data.content,
-        data.prompt
+        data.prompt,
+        data.id ? Number(data.id) : undefined
       );
       return response.status(HttpStatus.OK).json(result);
     } catch (error: any) {
@@ -88,5 +92,19 @@ export class FofaAiController {
         error: error,
       });
     }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("curriculos")
+  listCurriculos(@Req() request: any, @Query("search") search?: string) {
+    const companyId = request.user.sub?.companyId || request.user?.companyId;
+    return this.fofaAiService.listCurriculums(Number(companyId), search);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("curriculos/:id")
+  getCurriculo(@Req() request: any, @Param("id") id: string) {
+    const companyId = request.user.sub?.companyId || request.user?.companyId;
+    return this.fofaAiService.getCurriculum(Number(companyId), Number(id));
   }
 }

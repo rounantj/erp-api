@@ -1,6 +1,6 @@
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { PassportStrategy } from '@nestjs/passport'
-import { Injectable } from '@nestjs/common'
+import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { jwtConstants } from './auth.config'
 import { UnitOfWorkService } from '@/infra/unit-of-work'
 import { Request } from 'express'
@@ -25,6 +25,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       if (!user) {
         return { sub: payload.sub }
+      }
+
+      if (user.is_active === false) {
+        throw new UnauthorizedException('Acesso bloqueado')
       }
 
       const requestedCompanyId = Number(req.headers['x-company-id'])

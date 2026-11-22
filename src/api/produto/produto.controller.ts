@@ -33,11 +33,11 @@ export class ProdutoController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Request() req: any, @Body() poduto: Produto) {
-    const user = req.user?.sub || req.user;
-    if (user?.companyId && !poduto.companyId) {
-      poduto.companyId = user.companyId;
-    }
+  async create(@Request() req: any, @Body() poduto: Produto) {
+    const companyId = Number(req.user?.sub?.companyId || req.user?.companyId);
+    if (!companyId) throw new HttpException("Empresa não identificada", HttpStatus.BAD_REQUEST);
+    if (poduto.id) await this.produtoService.assertOwned(Number(poduto.id), companyId);
+    poduto.companyId = companyId;
     return this.produtoService.upsert(poduto);
   }
 
@@ -115,14 +115,20 @@ export class ProdutoController {
 
   @UseGuards(JwtAuthGuard)
   @Get(":id")
-  getOne(@Request() req: any, @Param("id") produtoId: number) {
-    return this.produtoService.getOne(produtoId);
+  async getOne(@Request() req: any, @Param("id") produtoId: number) {
+    const companyId = Number(req.user?.sub?.companyId || req.user?.companyId);
+    const produto = await this.produtoService.getOne(produtoId);
+    if (!produto || Number(produto.companyId) !== companyId) {
+      throw new HttpException("Produto não encontrado", HttpStatus.NOT_FOUND);
+    }
+    return produto;
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete()
-  delete(@Request() req: any, @Query() podutoId: number) {
-    return this.produtoService.delete(podutoId);
+  delete(@Request() req: any, @Query("produtoId") produtoId: string) {
+    const companyId = Number(req.user?.sub?.companyId || req.user?.companyId);
+    return this.produtoService.delete(companyId, Number(produtoId));
   }
 
   /**
@@ -151,7 +157,7 @@ export class ProdutoController {
 
       // Verificar se o produto existe
       const produto = await this.produtoService.getOne(productId);
-      if (!produto) {
+      if (!produto || Number(produto.companyId) !== Number(companyId)) {
         throw new HttpException("Produto não encontrado", HttpStatus.NOT_FOUND);
       }
 

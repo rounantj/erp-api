@@ -2,7 +2,7 @@ import { Produto } from "@/domain/entities/produtos.entity";
 import { User } from "@/domain/entities/user.entity";
 import { lastedProds } from "@/helpers/prds";
 import { UnitOfWorkService } from "@/infra/unit-of-work";
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { IsNull, Not, ILike } from "typeorm";
 
 export interface SearchProductsParams {
@@ -390,10 +390,16 @@ export class ProdutoService {
     console.log(`❌ Produto não encontrado com código: "${cleanCode}"`);
     return null;
   }
-  async delete(produto: any) {
-    const id = Number(produto?.produtoId);
-    const prd: Produto = { id, deletedAt: new Date() } as Produto;
-    return await this.uow.produtoRepository.delete(prd.id);
+  async assertOwned(id: number, companyId: number) {
+    const produto = await this.uow.produtoRepository.findOne({ where: { id, companyId, deletedAt: IsNull() } });
+    if (!produto) throw new NotFoundException("Produto não encontrado");
+    return produto;
+  }
+
+  async delete(companyId: number, id: number) {
+    await this.assertOwned(id, companyId);
+    await this.uow.produtoRepository.softDelete({ id, companyId });
+    return { success: true };
   }
 
   /**

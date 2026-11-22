@@ -18,6 +18,7 @@ import { HasRoles, RolesGuard } from "@/domain/auth/guard/roles.guard";
 import { Roles } from "@/domain/auth/enums/roles.enum";
 import { Throttle } from "@nestjs/throttler";
 import { User } from "@/domain/entities/user.entity";
+import { TeamService, teamActor } from "@/api/users/team.service";
 
 const REQUESTS_LIMIT = 10;
 const REQUESTS_INTERVAL = 60000;
@@ -27,7 +28,7 @@ const THROTTLE_OPTIONS = {
 
 @Controller()
 export class AuthController {
-  constructor(private authService: UserAuthUsecase) { }
+  constructor(private authService: UserAuthUsecase, private team: TeamService) { }
 
   @Throttle(THROTTLE_OPTIONS)
   @Post("auth/login")
@@ -57,14 +58,15 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get("user/list")
-  async userList(@Request() req: any, @Query() params: any) {
-    return this.authService.userList(params.companyId);
+  async userList(@Request() req: any) {
+    return this.team.list(teamActor(req, { admin: true }));
   }
 
   @UseGuards(JwtAuthGuard)
   @Post("user/update-role")
   async userUpdateRole(@Request() req: any, @Body() params: { companyId: number, userName: string, userRule: string }) {
-    return this.authService.updateUserRule(params);
+    const actor = teamActor(req, { admin: true });
+    return this.authService.updateUserRule({ ...params, companyId: actor.companyId });
   }
 
   @Post("auth/login-as-api")
